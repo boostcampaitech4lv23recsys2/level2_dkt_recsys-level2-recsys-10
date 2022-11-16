@@ -8,7 +8,7 @@
 # Write footer below : ex ) related issue number ..
 
 ################
-# feature : new function
+# feat : new function
 # fix : fix bug
 # docs : modify document
 # test : add test code
