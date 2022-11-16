@@ -16,6 +16,9 @@ Thumbs.db
 # pt file
 **/*.pt
 
+# npy file
+**/*.npy
+
 # data folder except
 data/
 
