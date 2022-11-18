@@ -58,6 +58,6 @@ code
 ```
 
 ## :man_technologist: Members
-
+구혜인 권은채 박건영 장현우 정현호 허유진
 
 
