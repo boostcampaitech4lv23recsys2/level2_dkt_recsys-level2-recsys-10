@@ -6,11 +6,11 @@ def parse_args():
 
     parser.add_argument("--seed", default=42, type=int, help="seed")
 
-    parser.add_argument("--device", default="cpu", type=str, help="cpu or gpu")
+    parser.add_argument("--device", default="gpu", type=str, help="cpu or gpu")
 
     parser.add_argument(
         "--data_dir",
-        default="/opt/ml/input/data/",
+        default="../../data/",
         type=str,
         help="data directory",
     )
@@ -37,7 +37,7 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--max_seq_len", default=20, type=int, help="max sequence length"
+        "--max_seq_len", default=20, type=int, help="max sequence length"       # default : 20
     )
     parser.add_argument("--num_workers", default=1, type=int, help="number of workers")
 
@@ -53,7 +53,7 @@ def parse_args():
     parser.add_argument("--n_epochs", default=20, type=int, help="number of epochs")
     parser.add_argument("--batch_size", default=64, type=int, help="batch size")
     parser.add_argument("--lr", default=0.0001, type=float, help="learning rate")
-    parser.add_argument("--clip_grad", default=10, type=int, help="clip grad")
+    parser.add_argument("--clip_grad", default=10, type=int, help="clip grad")      # default 10 : gradient exploding 방지
     parser.add_argument("--patience", default=5, type=int, help="for early stopping")
 
     parser.add_argument(
@@ -64,8 +64,25 @@ def parse_args():
     parser.add_argument("--model", default="lstm", type=str, help="model type")
     parser.add_argument("--optimizer", default="adam", type=str, help="optimizer type")
     parser.add_argument(
-        "--scheduler", default="plateau", type=str, help="scheduler type"
+        "--scheduler", default="plateau", type=str, help="scheduler type" # plateau linear_warmup
     )
+
+
+    # Data Augmentation
+    parser.add_argument("--window", default=True, type=bool, help="window") # False 면 augumentation X
+    parser.add_argument("--shuffle", default=True, type=bool, help="shuffle")
+    parser.add_argument("--stride", default=10, type=int, help="stride")
+    parser.add_argument("--shuffle_n", default=3, type=int, help="number of shuffle")
+
+    # lstm
+    # layer / emb_dim 256 or 512 / seq_len 작게?? -> 크게 할수록 좋을텐데
+
+    # lstmattn : transformer
+    # layer / heads / emb_dim / seq_len
+    
+    # bert
+    
+
 
     args = parser.parse_args()
 
