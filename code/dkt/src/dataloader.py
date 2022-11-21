@@ -42,6 +42,9 @@ class Preprocess:
 
     def __preprocessing(self, df, is_train=True):
         cate_cols = ["assessmentItemID", "testId", "KnowledgeTag"]
+        ############################
+        # cate_cols = ["assessmentItemID", "testId", "KnowledgeTag",'month','category_2','category_difficulty','test_paper','test_question']
+        ############################
 
         if not os.path.exists(self.args.asset_dir):
             os.makedirs(self.args.asset_dir)
@@ -99,8 +102,30 @@ class Preprocess:
             np.load(os.path.join(self.args.asset_dir, "KnowledgeTag_classes.npy"))
         )
 
+        ############################
+        # self.args.n_month = len(
+        #     np.load(os.path.join(self.args.asset_dir, "month_classes.npy"))
+        # )
+        # self.args.n_category_2 = len(
+        #     np.load(os.path.join(self.args.asset_dir, "category_2_classes.npy"))
+        # )
+        # self.args.n_category_difficulty = len(
+        #     np.load(os.path.join(self.args.asset_dir, "category_difficulty_classes.npy"))
+        # )
+        # self.args.n_test_paper = len(
+        #     np.load(os.path.join(self.args.asset_dir, "test_paper_classes.npy"))
+        # )
+        # self.args.n_test_question = len(
+        #     np.load(os.path.join(self.args.asset_dir, "test_question_classes.npy"))
+        # )
+        ############################
+
         df = df.sort_values(by=["userID", "Timestamp"], axis=0)
+
         columns = ["userID", "assessmentItemID", "testId", "answerCode", "KnowledgeTag"]
+        ############################
+        # columns = ["userID", "assessmentItemID", "testId", "answerCode", "KnowledgeTag",'month','category_2','category_difficulty','test_paper','test_question']
+        ############################
         group = (
             df[columns]
             .groupby("userID")
@@ -110,6 +135,13 @@ class Preprocess:
                     r["assessmentItemID"].values,
                     r["KnowledgeTag"].values,
                     r["answerCode"].values,
+                    ############################
+                    # r["month"].values,
+                    # r["category_2"].values,
+                    # r["category_difficulty"].values,
+                    # r["test_paper"].values,
+                    # r["test_question"].values,
+                    ############################
                 )
             )
         )
@@ -134,9 +166,17 @@ class DKTDataset(torch.utils.data.Dataset):
         # 각 data의 sequence length
         seq_len = len(row[0])
 
+
+
         test, question, tag, correct = row[0], row[1], row[2], row[3]
 
         cate_cols = [test, question, tag, correct]
+        
+        ############################
+        # test, question, tag, correct, month, category_2, category_difficulty, test_paper, test_question = row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8]
+
+        # cate_cols = [test, question, tag, correct, month, category_2, category_difficulty, test_paper, test_question]
+        ############################
 
         # max seq len을 고려하여서 이보다 길면 자르고 아닐 경우 그대로 냅둔다
         if seq_len > self.args.max_seq_len:
@@ -208,3 +248,65 @@ def get_loaders(args, train, valid):
         )
 
     return train_loader, valid_loader
+
+
+
+# data augumentation
+
+def slidding_window(data, args):
+    window_size = args.max_seq_len
+    stride = args.stride
+
+    augmented_datas = []
+    for row in data:
+        seq_len = len(row[0])
+
+        # 만약 window 크기보다 seq len이 같거나 작으면 augmentation을 하지 않는다
+        if seq_len <= window_size:
+            augmented_datas.append(row)
+        else:
+            total_window = ((seq_len - window_size) // stride) + 1
+            
+            # 앞에서부터 slidding window 적용
+            for window_i in range(total_window):
+                # window로 잘린 데이터를 모으는 리스트
+                window_data = []
+                for col in row:
+                    window_data.append(col[window_i*stride:window_i*stride + window_size])
+
+                # Shuffle
+                # 마지막 데이터의 경우 shuffle을 하지 않는다
+                if args.shuffle and window_i + 1 != total_window:
+                    shuffle_datas = shuffle(window_data, window_size, args)
+                    augmented_datas += shuffle_datas
+                else:
+                    augmented_datas.append(tuple(window_data))
+
+            # slidding window에서 뒷부분이 누락될 경우 추가
+            total_len = window_size + (stride * (total_window - 1))
+            if seq_len != total_len:
+                window_data = []
+                for col in row:
+                    window_data.append(col[-window_size:])
+                augmented_datas.append(tuple(window_data))
+
+
+    return augmented_datas
+
+def shuffle(data, data_size, args):
+    shuffle_datas = []
+    for i in range(args.shuffle_n):
+        # shuffle 횟수만큼 window를 랜덤하게 계속 섞어서 데이터로 추가
+        shuffle_data = []
+        random_index = np.random.permutation(data_size)
+        for col in data:
+            shuffle_data.append(col[random_index])
+        shuffle_datas.append(tuple(shuffle_data))
+    return shuffle_datas
+
+
+def data_augmentation(data, args):
+    if args.window == True:
+        data = slidding_window(data, args)
+
+    return data
