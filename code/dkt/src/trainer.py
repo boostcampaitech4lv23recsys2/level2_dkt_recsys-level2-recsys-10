@@ -5,15 +5,21 @@ import torch
 import wandb
 
 from .criterion import get_criterion
-from .dataloader import get_loaders
+from .dataloader import get_loaders, data_augmentation
 from .metric import get_metric
-from .model import LSTM, LSTMATTN, Bert
+from .model import LSTM, LSTMATTN, Bert, LastQuery
 from .optimizer import get_optimizer
 from .scheduler import get_scheduler
 
 
 def run(args, train_data, valid_data, model):
-    train_loader, valid_loader = get_loaders(args, train_data, valid_data)
+    # data augmentation
+    augmented_train_data = data_augmentation(train_data, args)
+    if len(augmented_train_data) != len(train_data):
+        print(f"Data Augmentation applied. Train data {len(train_data)} -> {len(augmented_train_data)}\n")
+
+    # train_loader, valid_loader = get_loaders(args, train_data, valid_data)
+    train_loader, valid_loader = get_loaders(args, augmented_train_data, valid_data)
 
     # only when using warmup scheduler
     args.total_steps = int(math.ceil(len(train_loader.dataset) / args.batch_size)) * (
@@ -73,6 +79,7 @@ def run(args, train_data, valid_data, model):
         # scheduler
         if args.scheduler == "plateau":
             scheduler.step(best_auc)
+        
 
 
 def train(train_loader, model, optimizer, scheduler, args):
@@ -153,6 +160,7 @@ def inference(args, test_data, model):
 
         # predictions
         preds = preds[:, -1]
+        preds = torch.nn.Sigmoid()(preds)
         preds = preds.cpu().detach().numpy()
         total_preds += list(preds)
 
@@ -184,6 +192,10 @@ def process_batch(batch):
 
     test, question, tag, correct, mask = batch
 
+    ############################
+    # test, question, tag, correct, month, category_2, category_difficulty, test_paper, test_question, mask = batch
+    ############################
+
     # change to float
     mask = mask.float()
     correct = correct.float()
@@ -199,8 +211,19 @@ def process_batch(batch):
     test = ((test + 1) * mask).int()
     question = ((question + 1) * mask).int()
     tag = ((tag + 1) * mask).int()
+    
+    ############################
+    # tag = ((tag + 1) * mask).int()
+    # month = ((month + 1) * mask).int()
+    # category_2 = ((category_2 + 1) * mask).int()
+    # category_difficulty = ((category_difficulty + 1) * mask).int()
+    # test_paper = ((test_paper + 1) * mask).int()
+    # test_question = ((test_question + 1) * mask).int()
+    ############################
 
     return (test, question, tag, correct, mask, interaction)
+    # return (test, question, tag, correct, month, category_2, category_difficulty, test_paper, test_question, mask, interaction)
+    
 
 
 # loss계산하고 parameter update!
