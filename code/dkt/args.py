@@ -72,7 +72,7 @@ def parse_args():
     parser.add_argument("--window", default=True, type=bool, help="window") # False 면 augumentation X
     parser.add_argument("--shuffle", default=True, type=bool, help="shuffle")
     parser.add_argument("--stride", default=10, type=int, help="stride")
-    parser.add_argument("--shuffle_n", default=3, type=int, help="number of shuffle")
+    parser.add_argument("--shuffle_n", default=10, type=int, help="number of shuffle")
 
     # lstm
     # layer / emb_dim 256 or 512 / seq_len 작게?? -> 크게 할수록 좋을텐데
@@ -81,7 +81,7 @@ def parse_args():
     # layer / heads / emb_dim / seq_len
     
     # bert
-    
+
 
 
     args = parser.parse_args()

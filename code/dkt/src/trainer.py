@@ -2,6 +2,7 @@ import math
 import os
 
 import torch
+import numpy as np
 import wandb
 
 from .criterion import get_criterion
@@ -183,6 +184,9 @@ def get_model(args):
         model = LSTMATTN(args)
     if args.model == "bert":
         model = Bert(args)
+    if args.model == "lastquery":
+        model = LastQuery(args)
+
 
     return model
 
@@ -211,7 +215,7 @@ def process_batch(batch):
     test = ((test + 1) * mask).int()
     question = ((question + 1) * mask).int()
     tag = ((tag + 1) * mask).int()
-    
+
     ############################
     # tag = ((tag + 1) * mask).int()
     # month = ((month + 1) * mask).int()
@@ -221,7 +225,13 @@ def process_batch(batch):
     # test_question = ((test_question + 1) * mask).int()
     ############################
 
-    return (test, question, tag, correct, mask, interaction)
+    # gather index
+    # 마지막 sequence만 사용하기 위한 index
+    gather_index = torch.tensor(np.count_nonzero(mask, axis=1))
+    gather_index = gather_index.view(-1, 1) - 1
+
+    # return (test, question, tag, correct, mask, interaction)
+    return (test, question, tag, correct, mask, interaction, gather_index)
     # return (test, question, tag, correct, month, category_2, category_difficulty, test_paper, test_question, mask, interaction)
     
 
@@ -238,6 +248,7 @@ def compute_loss(preds, targets):
 
     # 마지막 시퀀드에 대한 값만 loss 계산
     loss = loss[:, -1]
+    # loss = torch.gather(loss, 1, index)
     loss = torch.mean(loss)
     return loss
 
