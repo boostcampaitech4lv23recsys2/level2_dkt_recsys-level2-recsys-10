@@ -61,7 +61,7 @@ def parse_args():
     )
 
     ### 중요 ###
-    parser.add_argument("--model", default="lstm", type=str, help="model type")
+    parser.add_argument("--model", default="XGBClassifier", type=str, help="model type : XGBClassifier,LGBM")
     parser.add_argument("--optimizer", default="adam", type=str, help="optimizer type")
     parser.add_argument(
         "--scheduler", default="plateau", type=str, help="scheduler type"
