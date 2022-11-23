@@ -5,42 +5,13 @@ from lightgbm import LGBMClassifier
 from catboost import CatBoostClassifier
 
 from .dataloader import * 
+from .datasplit import * 
+from .afterprocessing import *
+
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import accuracy_score
 import os 
 import numpy as np
-
-# train과 test 데이터셋은 사용자 별로 묶어서 분리를 해주어야함
-def custom_train_test_split(df, FEATS, orient_key = 'userID',ratio=0.7, split=True):
-    
-    users = list(zip(df[orient_key].value_counts().index, df[orient_key].value_counts()))
-    random.shuffle(users)
-    
-    max_train_data_len = ratio*len(df)
-    sum_of_train_data = 0
-    user_ids =[]
-
-    for user_id, count in users:
-        sum_of_train_data += count
-        if max_train_data_len < sum_of_train_data:
-            break
-        user_ids.append(user_id)
-
-
-    train = df[df[orient_key].isin(user_ids)]
-    valid = df[df[orient_key].isin(user_ids) == False]
-
-    # test데이터셋은 각 유저의 마지막 interaction만 추출
-    valid = valid[valid['userID'] != valid['userID'].shift(-1)]
-
-    train_X = train.drop("answerCode",axis = 1 )
-    y_train = train["answerCode"]
-
-    valid_X = valid.drop("answerCode",axis = 1 )
-    y_valid = valid["answerCode"]
-
-    return train_X[FEATS], y_train, valid_X[FEATS], y_valid
-
 
 class MLModelBase:
 
@@ -48,7 +19,8 @@ class MLModelBase:
                  data_collection :dict, 
                  best_params : dict, 
                  preprocessing_ft,
-                 use_feat_list : list ):
+                 use_feat_list : list,
+                 do_transform_label: bool=True ):
         
         self.best_params = best_params 
         self.data = data_collection
@@ -56,9 +28,26 @@ class MLModelBase:
         # 사용할 Feature 설정
         self.FEATS = use_feat_list
         
-        self.data["train"] = preprocessing_ft( self.data["train"] )
-        self.data["test"]  = preprocessing_ft( self.data["test"] )
-        
+        # 전체 데이터 처리를 위한 total data 
+        self.data["train"]["is_train"] = 1 
+        self.data["test"]["is_test"]   = 0
+        self.data["test"].loc[self.data["test"]["answerCode"]== -1 , "answerCode"] = np.NaN 
+        total_df = pd.concat([self.data["train"], self.data["test"] ])
+        total_df =  preprocessing_ft( total_df )
+        total_df["answerCode"] = total_df["answerCode"].fillna(-1)
+
+        self.data["train"] = total_df[total_df["is_train"]==1]
+        self.data["test"]  = total_df[total_df["is_train"]!=0]
+
+        self.data["train"].drop("is_train",axis=1,inplace=True)
+        self.data["test"].drop("is_train",axis=1,inplace=True)
+
+        # mapping 변경이 필요하면 아래 코드를 각 클래스별로 포함 시키고 함수를 바꾸어 줘야 함
+        # 현재는 int, float, bool 형이면 label encoding 하는 방식 
+        if( True == do_transform_label):
+            self.data["train"] = mapping_cat_to_label( self.data["train"])
+            self.data["test"] = mapping_cat_to_label( self.data["test"])
+
         # split 변경이 필요하면 각 클래스에 포함 시켜줘야 함 
         self.train_X, self.y_train, self.valid_X, self.y_valid \
             = custom_train_test_split( self.data["train"],self.FEATS )
@@ -113,10 +102,15 @@ class MyXGBoostClassifier(MLModelBase) :
     def __init__(self, data_collection :dict, 
                        best_params : dict, 
                        preprocessing_ft, 
-                       use_feat_list : list ):
+                       use_feat_list : list,
+                       do_transform_label: bool=True ):
         
         # default data split 방법은 custom data split 이다. 
-        super().__init__( data_collection, best_params, preprocessing_ft,use_feat_list)
+        super().__init__( data_collection, 
+                          best_params, 
+                          preprocessing_ft,
+                          use_feat_list,
+                          do_transform_label)
 
         self.model = XGBClassifier( **self.best_params)
 
@@ -150,10 +144,15 @@ class MyLGBM(MLModelBase):
     def __init__(self, data_collection :dict, 
                     best_params : dict, 
                     preprocessing_ft, 
-                    use_feat_list : list ):
+                    use_feat_list : list,
+                    do_transform_label: bool=True ):
     
         # default data split 방법은 custom data split 이다. 
-        super().__init__( data_collection, best_params, preprocessing_ft,use_feat_list)
+        super().__init__( data_collection, 
+                          best_params, 
+                          preprocessing_ft,
+                          use_feat_list,
+                          do_transform_label)
         
         self.lgb_train = lgb.Dataset( self.train_X[self.FEATS], self.y_train)
         self.lgb_valid = lgb.Dataset( self.valid_X[self.FEATS], self.y_valid)
@@ -189,10 +188,15 @@ class MyLGBMClassifier(MLModelBase):
     def __init__(self, data_collection :dict, 
                     best_params : dict, 
                     preprocessing_ft, 
-                    use_feat_list : list ):
+                    use_feat_list : list,
+                    do_transform_label: bool=True ):
     
         # default data split 방법은 custom data split 이다. 
-        super().__init__( data_collection, best_params, preprocessing_ft,use_feat_list)
+        super().__init__( data_collection, 
+                          best_params, 
+                          preprocessing_ft,
+                          use_feat_list,
+                          do_transform_label)
         
         self.lgb_train = lgb.Dataset( self.train_X[self.FEATS], self.y_train)
         self.lgb_valid = lgb.Dataset( self.valid_X[self.FEATS], self.y_valid)
@@ -226,10 +230,15 @@ class MyCatClassifier(MLModelBase):
     def __init__(self, data_collection :dict, 
                     best_params : dict, 
                     preprocessing_ft, 
-                    use_feat_list : list ):
+                    use_feat_list : list,
+                    do_transform_label: bool=True ):
     
         # default data split 방법은 custom data split 이다. 
-        super().__init__( data_collection, best_params, preprocessing_ft,use_feat_list)
+        super().__init__( data_collection, 
+                          best_params, 
+                          preprocessing_ft,
+                          use_feat_list,
+                          do_transform_label)
         
         self.model = CatBoostClassifier( **self.best_params )
                     # loss_function='CrossEntropy' 

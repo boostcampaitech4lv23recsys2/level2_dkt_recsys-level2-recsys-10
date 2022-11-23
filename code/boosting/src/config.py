@@ -35,6 +35,6 @@ boosting_params = {
         "learning_rate" : 0.01,
         "max_depth" : 15,
         "alpha" : 10,
-        "n_estimators":5
+        "n_estimators":5,
     }
 }
