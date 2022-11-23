@@ -17,6 +17,16 @@ boosting_params = {
         'num_iterations':500
     },
 
+    "LGBMClassifier" : {
+        "max_depth" : 6,
+        "num_leaves" : 60,
+        # min_data_in_leaf = 10,
+        "seed" : 42,
+        "metric" : "auc",
+        "objective" : "binary",
+        "n_estimators" : 200
+    },
+
     "XGBClassifier":{
         "booster": "gbtree",
         "subsample": 1,

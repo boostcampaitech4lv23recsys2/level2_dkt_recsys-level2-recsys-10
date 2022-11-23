@@ -1,6 +1,7 @@
 import wandb 
 from xgboost import XGBClassifier
 import lightgbm as lgb
+from lightgbm import LGBMClassifier
 from catboost import CatBoostClassifier
 
 from .dataloader import * 
@@ -183,6 +184,43 @@ class MyLGBM(MLModelBase):
 
         return auc
 
+class MyLGBMClassifier(MLModelBase):
+
+    def __init__(self, data_collection :dict, 
+                    best_params : dict, 
+                    preprocessing_ft, 
+                    use_feat_list : list ):
+    
+        # default data split 방법은 custom data split 이다. 
+        super().__init__( data_collection, best_params, preprocessing_ft,use_feat_list)
+        
+        self.lgb_train = lgb.Dataset( self.train_X[self.FEATS], self.y_train)
+        self.lgb_valid = lgb.Dataset( self.valid_X[self.FEATS], self.y_valid)
+        self.model = LGBMClassifier( **self.best_params)
+
+    def train(self):
+
+        wandb.init(project="LGBMClassifier", config= self.best_params)
+        
+        self.model.fit(
+                    X=self.train_X[self.FEATS],
+                    y=self.y_train,
+                    eval_set=[(self.valid_X[self.FEATS], self.y_valid)],
+                    early_stopping_rounds=100,
+                    verbose=20,
+                )
+
+        # wandb.lightgbm.log_summary(self.model, save_model_checkpoint=True)
+        preds = self.model.predict(self.valid_X[self.FEATS])
+
+        acc = accuracy_score(self.y_valid, np.where(preds >= 0.5, 1, 0))
+        auc = roc_auc_score(self.y_valid, preds)
+        wandb.log({"valid_accuracy": acc})
+        wandb.log({"valid_roc_auc": auc})
+
+        return auc
+
+
 class MyCatClassifier(MLModelBase):
 
     def __init__(self, data_collection :dict, 
@@ -217,3 +255,4 @@ class MyCatClassifier(MLModelBase):
         wandb.log({"valid_roc_auc": auc})
 
         return auc
+

@@ -23,12 +23,15 @@ def main(args):
     cur_model = None
     
     if  "XGBClassifier" == args.model :
-    
-        cur_model = MyXGBoostClassifier( data_collect, boosting_params[args.model], preprocessing, FEATS)
+        cur_model = MyXGBoostClassifier( data_collect, boosting_params[args.model], preprocessing_, FEATS)
     
     elif "LGBM" == args.model : 
         
         cur_model = MyLGBM( data_collect, boosting_params[args.model], preprocessing, FEATS)
+    
+    elif "LGBMClassifier" == args.model : 
+        
+        cur_model = MyLGBMClassifier( data_collect, boosting_params[args.model], preprocessing, FEATS)
     
     elif "CatBoostClassifier" == args.model :
         cur_model = MyCatClassifier( data_collect, boosting_params[args.model], preprocessing, FEATS)
