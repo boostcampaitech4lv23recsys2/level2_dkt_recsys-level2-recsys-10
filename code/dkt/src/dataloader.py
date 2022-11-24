@@ -41,9 +41,9 @@ class Preprocess:
         np.save(le_path, encoder.classes_)
 
     def __preprocessing(self, df, is_train=True):
-        cate_cols = ["assessmentItemID", "testId", "KnowledgeTag"]
+        # cate_cols = ["assessmentItemID", "testId", "KnowledgeTag"]
         ############################
-        # cate_cols = ["assessmentItemID", "testId", "KnowledgeTag",'month','category_2','category_difficulty','test_paper','test_question']
+        cate_cols = ["assessmentItemID", "testId", "KnowledgeTag", 'test_question']
         ############################
 
         if not os.path.exists(self.args.asset_dir):
@@ -115,16 +115,16 @@ class Preprocess:
         # self.args.n_test_paper = len(
         #     np.load(os.path.join(self.args.asset_dir, "test_paper_classes.npy"))
         # )
-        # self.args.n_test_question = len(
-        #     np.load(os.path.join(self.args.asset_dir, "test_question_classes.npy"))
-        # )
+        self.args.n_test_question = len(
+            np.load(os.path.join(self.args.asset_dir, "test_question_classes.npy"))
+        )
         ############################
 
         df = df.sort_values(by=["userID", "Timestamp"], axis=0)
 
-        columns = ["userID", "assessmentItemID", "testId", "answerCode", "KnowledgeTag"]
+        # columns = ["userID", "assessmentItemID", "testId", "answerCode", "KnowledgeTag"]
         ############################
-        # columns = ["userID", "assessmentItemID", "testId", "answerCode", "KnowledgeTag",'month','category_2','category_difficulty','test_paper','test_question']
+        columns = ["userID", "assessmentItemID", "testId", "answerCode", "KnowledgeTag", 'test_question']
         ############################
         group = (
             df[columns]
@@ -140,7 +140,7 @@ class Preprocess:
                     # r["category_2"].values,
                     # r["category_difficulty"].values,
                     # r["test_paper"].values,
-                    # r["test_question"].values,
+                    r["test_question"].values,
                     ############################
                 )
             )
@@ -168,14 +168,14 @@ class DKTDataset(torch.utils.data.Dataset):
 
 
 
-        test, question, tag, correct = row[0], row[1], row[2], row[3]
+        # test, question, tag, correct = row[0], row[1], row[2], row[3]
 
-        cate_cols = [test, question, tag, correct]
+        # cate_cols = [test, question, tag, correct]
         
         ############################
-        # test, question, tag, correct, month, category_2, category_difficulty, test_paper, test_question = row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8]
+        test, question, tag, correct, test_question = row[0], row[1], row[2], row[3], row[4]
 
-        # cate_cols = [test, question, tag, correct, month, category_2, category_difficulty, test_paper, test_question]
+        cate_cols = [test, question, tag, correct, test_question]
         ############################
 
         # max seq len을 고려하여서 이보다 길면 자르고 아닐 경우 그대로 냅둔다

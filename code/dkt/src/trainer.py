@@ -69,13 +69,13 @@ def run(args, train_data, valid_data, model):
                 "model.pt",
             )
             early_stopping_counter = 0
-        else:
-            early_stopping_counter += 1
-            if early_stopping_counter >= args.patience:
-                print(
-                    f"EarlyStopping counter: {early_stopping_counter} out of {args.patience}"
-                )
-                break
+        # else:                             # early_stopping
+        #     early_stopping_counter += 1
+        #     if early_stopping_counter >= args.patience:
+        #         print(
+        #             f"EarlyStopping counter: {early_stopping_counter} out of {args.patience}"
+        #         )
+        #         break
 
         # scheduler
         if args.scheduler == "plateau":
@@ -194,10 +194,10 @@ def get_model(args):
 # 배치 전처리
 def process_batch(batch):
 
-    test, question, tag, correct, mask = batch
+    # test, question, tag, correct, mask = batch
 
     ############################
-    # test, question, tag, correct, month, category_2, category_difficulty, test_paper, test_question, mask = batch
+    test, question, tag, correct, test_question, mask = batch
     ############################
 
     # change to float
@@ -217,12 +217,7 @@ def process_batch(batch):
     tag = ((tag + 1) * mask).int()
 
     ############################
-    # tag = ((tag + 1) * mask).int()
-    # month = ((month + 1) * mask).int()
-    # category_2 = ((category_2 + 1) * mask).int()
-    # category_difficulty = ((category_difficulty + 1) * mask).int()
-    # test_paper = ((test_paper + 1) * mask).int()
-    # test_question = ((test_question + 1) * mask).int()
+    test_question = ((test_question + 1) * mask).int()
     ############################
 
     # gather index
@@ -231,8 +226,8 @@ def process_batch(batch):
     gather_index = gather_index.view(-1, 1) - 1
 
     # return (test, question, tag, correct, mask, interaction)
-    return (test, question, tag, correct, mask, interaction, gather_index)
-    # return (test, question, tag, correct, month, category_2, category_difficulty, test_paper, test_question, mask, interaction)
+    # return (test, question, tag, correct, mask, interaction, gather_index)
+    return (test, question, tag, correct, test_question, mask, interaction, gather_index)
     
 
 
