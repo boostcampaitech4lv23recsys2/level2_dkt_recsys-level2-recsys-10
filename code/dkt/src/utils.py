@@ -18,3 +18,5 @@ def setSeeds(seed=42):
     torch.backends.cudnn.benchmark = False
     
     torch.backends.cudnn.deterministic = True
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.benchmark = False

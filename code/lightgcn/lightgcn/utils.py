@@ -25,7 +25,8 @@ def setSeeds(seed=42):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
-
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.benchmark = False
 
 def get_logger(logger_conf):
     import logging
