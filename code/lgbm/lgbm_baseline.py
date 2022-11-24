@@ -3,7 +3,7 @@ import os
 import random
 
 import torch
-import wandb
+##import wandb
 
 import lightgbm as lgb
 from sklearn.metrics import roc_auc_score
@@ -11,6 +11,25 @@ from sklearn.metrics import accuracy_score
 import numpy as np
 
 import argparse
+
+####################################################################
+def x_100(value):   #0~100범위로 바꿔주기
+    return int(value * 100)
+
+def time_zero(value):   #문제 푼 시간 범위 
+    if value < 0:
+        return 7
+    if value > 3600:
+        return 3600
+    else:
+        return value
+def lucky(value):   #찍은 사람 찾기 
+    if value < 6:
+        return 0
+    else:
+        return 1
+
+####################################################################
 
 def feature_engineering(df):
     
@@ -31,6 +50,59 @@ def feature_engineering(df):
 
     df = pd.merge(df, correct_t, on=['testId'], how="left")
     df = pd.merge(df, correct_k, on=['KnowledgeTag'], how="left")
+    ####################################################################
+    #문항별 평균 평점
+    ass_aver = df.groupby(['assessmentItemID'])['answerCode'].agg(['mean'])
+    #유저별 평균 평점
+    user_aver = df.groupby(['userID'])['answerCode'].agg(['mean'])
+    df = pd.merge(df, ass_aver, on=['assessmentItemID'], how="left")
+    df = pd.merge(df, user_aver, on=['userID'], how="left")
+    df = df.rename(columns={'mean_x':'ass_aver'})
+    df = df.rename(columns={'mean_y':'user_aver'})
+    df['ass_aver'] = df['ass_aver'].apply(x_100)
+    df['user_aver'] = df['user_aver'].apply(x_100)
+
+    #난이도
+    df['assessment_2'] = df['assessmentItemID'].str[2]
+    level = df.groupby(['assessment_2'])['answerCode'].agg(['mean'])
+    df = pd.merge(df, level, on=['assessment_2'], how="left")
+    df = df.drop(columns = ['assessment_2'])
+    df = df.rename(columns={'mean':'level'})
+    df['level'] = df['level'].apply(x_100)
+
+    # #찍은 사람
+    # df['time'] = df['Timestamp'].str.replace(pat=r'[^A-Za-z0-9]', repl=r'', regex=True)
+    # df['time'] = df['time'].astype('int')
+    # df['diff'] = df['time'].shift(-1) - df['time']
+    # df['diff'] = df['diff'].apply(time_zero)
+    # df['diff'] = df['diff'].fillna(7)
+    # df['luc'] = df['diff'].apply(lucky)
+    # df = df.drop(columns = ['diff','time'])
+
+    # #태그 평점
+    # tag_aver = df.groupby(['KnowledgeTag'])['answerCode'].agg(['mean'])
+    # df = pd.merge(df, tag_aver, on=['KnowledgeTag'], how="left")
+    # df = df.rename(columns={'mean':'tag_aver'})
+    # df['tag_aver'] = df['tag_aver'].apply(x_100)
+
+    # 문항 번호별 점수 평점 
+    df['ass_num'] = df['assessmentItemID'].str[-2:]
+    ass_num = df.groupby(['ass_num'])['answerCode'].agg(['mean'])
+    df = pd.merge(df, ass_num, on=['ass_num'], how="left")
+    df = df.drop(columns = 'ass_num')
+    df = df.rename(columns = {'mean' : 'ass_num'})
+    df['ass_num'] = df['ass_num'].apply(x_100)
+
+    # 월별 점수 평점 
+    df['month'] = df['Timestamp'].str[5:7]
+    df['month'] = df['month'].astype('int')
+    month_mean = df.groupby(['month'])['answerCode'].agg(['mean'])
+    df = pd.merge(df, month_mean, on=['month'], how="left")
+    df = df.rename(columns={'mean':'month_mean'})
+    df['month_mean'] = df['month_mean'].apply(x_100)
+
+    ####################################################################
+
     
     return df
 
@@ -64,9 +136,9 @@ def custom_train_test_split(df, ratio=0.7, split=True):
 
 
 def main(args):
-    wandb.login()
+    ##wandb.login()
 
-    data_dir = '../../data' # 경로는 상황에 맞춰서 수정해주세요!
+    data_dir = '/opt/ml/level2_dkt_recsys-level2-recsys-10-2/data' # 경로는 상황에 맞춰서 수정해주세요!
     csv_file_path = os.path.join(data_dir, 'train_data.csv') # 데이터는 대회홈페이지에서 받아주세요 :)
     df = pd.read_csv(csv_file_path) 
 
@@ -78,8 +150,9 @@ def main(args):
 
     # 사용할 Feature 설정
     FEATS = ['KnowledgeTag', 'user_correct_answer', 'user_total_answer', 
-            'user_acc', 'test_mean', 'test_sum', 'tag_mean','tag_sum']
-
+            'user_acc', 'test_mean', 'test_sum', 'tag_mean','tag_sum',
+            'ass_aver','user_aver','level','ass_num','month_mean']
+#'luc'
     # X, y 값 분리
     y_train = train['answerCode']
     train = train.drop(['answerCode'], axis=1)
@@ -92,7 +165,7 @@ def main(args):
     lgb_test = lgb.Dataset(test[FEATS], y_test)
 
     ##########
-    wandb.init(project="lgbm", config=vars(args))
+    ## wandb.init(project="lgbm", config=vars(args))
     ##########
     model = lgb.train(
         {'objective': args.application,
@@ -106,16 +179,16 @@ def main(args):
         num_boost_round=args.num_boost_round,
         early_stopping_rounds=args.early_stopping_rounds,
         valid_names=('validation'),
-        callbacks=[wandb.lightgbm.wandb_callback()]
+        ##callbacks=[wandb.lightgbm.wandb_callback()]
     )
-    wandb.lightgbm.log_summary(model, save_model_checkpoint=True)
+    ##wandb.lightgbm.log_summary(model, save_model_checkpoint=True)
 
     preds = model.predict(test[FEATS])
 
     acc = accuracy_score(y_test, np.where(preds >= 0.5, 1, 0))
     auc = roc_auc_score(y_test, preds)
-    wandb.log({"valid_accuracy": acc})
-    wandb.log({"valid_roc_auc": auc})
+    ##wandb.log({"valid_accuracy": acc})
+    ##wandb.log({"valid_roc_auc": auc})
 
     print(f'VALID AUC : {auc} ACC : {acc}\n')
 
@@ -147,7 +220,7 @@ def main(args):
 
 
     # SAVE OUTPUT
-    output_dir = 'output/'
+    output_dir = '/opt/ml/level2_dkt_recsys-level2-recsys-10-2/code/output/'
     write_path = os.path.join(output_dir, "submission.csv")
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
