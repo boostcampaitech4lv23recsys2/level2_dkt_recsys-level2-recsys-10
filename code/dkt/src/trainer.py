@@ -4,6 +4,7 @@ import os
 import torch
 import numpy as np
 import wandb
+import gc
 
 from .criterion import get_criterion
 from .dataloader import get_loaders, data_augmentation
@@ -13,7 +14,10 @@ from .optimizer import get_optimizer
 from .scheduler import get_scheduler
 
 
-def run(args, train_data, valid_data, model):
+def run(args, train_data, valid_data, model, k_th=0):
+    torch.cuda.empty_cache()
+    gc.collect()
+
     # data augmentation
     augmented_train_data = data_augmentation(train_data, args)
     if len(augmented_train_data) != len(train_data):
@@ -32,6 +36,7 @@ def run(args, train_data, valid_data, model):
     scheduler = get_scheduler(optimizer, args)
 
     best_auc = -1
+    best_acc = -1
     early_stopping_counter = 0
     for epoch in range(args.n_epochs):
 
@@ -60,13 +65,16 @@ def run(args, train_data, valid_data, model):
             best_auc = auc
             # torch.nn.DataParallel로 감싸진 경우 원래의 model을 가져옵니다.
             model_to_save = model.module if hasattr(model, "module") else model
+            name = 'model.pt'
+            if(k_th != 0):
+                name = f'model_{k_th}.pt'
             save_checkpoint(
                 {
                     "epoch": epoch + 1,
                     "state_dict": model_to_save.state_dict(),
                 },
                 args.model_dir,
-                "model.pt",
+                name,
             )
             early_stopping_counter = 0
         # else:                             # early_stopping
@@ -80,6 +88,8 @@ def run(args, train_data, valid_data, model):
         # scheduler
         if args.scheduler == "plateau":
             scheduler.step(best_auc)
+    
+    # kfold_auc_list.append(best_auc)
         
 
 
@@ -90,9 +100,10 @@ def train(train_loader, model, optimizer, scheduler, args):
     total_targets = []
     losses = []
     for step, batch in enumerate(train_loader):
-        input = list(map(lambda t: t.to(args.device), process_batch(batch)))
+        # input = list(map(lambda t: t.to(args.device), process_batch(batch)))
+        input = process_batch(batch, args)
         preds = model(input)
-        targets = input[3]  # correct
+        targets = input[-1]  # correct
 
         loss = compute_loss(preds, targets)
         update_params(loss, model, optimizer, scheduler, args)
@@ -124,10 +135,10 @@ def validate(valid_loader, model, args):
     total_preds = []
     total_targets = []
     for step, batch in enumerate(valid_loader):
-        input = list(map(lambda t: t.to(args.device), process_batch(batch)))
+        input = process_batch(batch, args)
 
         preds = model(input)
-        targets = input[3]  # correct
+        targets = input[-1]  # correct
 
         # predictions
         preds = preds[:, -1]
@@ -155,17 +166,18 @@ def inference(args, test_data, model):
     total_preds = []
 
     for step, batch in enumerate(test_loader):
-        input = list(map(lambda t: t.to(args.device), process_batch(batch)))
+        input = process_batch(batch, args)
 
         preds = model(input)
 
         # predictions
         preds = preds[:, -1]
-        preds = torch.nn.Sigmoid()(preds)
+        # preds = torch.nn.Sigmoid()(preds)
         preds = preds.cpu().detach().numpy()
         total_preds += list(preds)
 
     write_path = os.path.join(args.output_dir, "submission.csv")
+
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
     with open(write_path, "w", encoding="utf8") as w:
@@ -192,13 +204,15 @@ def get_model(args):
 
 
 # 배치 전처리
-def process_batch(batch):
+def process_batch(batch, args):
 
-    # test, question, tag, correct, mask = batch
+    col = args.columns
 
-    ############################
-    test, question, tag, correct, test_question, mask = batch
-    ############################
+    cate_batch =  {col_name : batch[args.cate_loc[col_name]] for col_name in args.cate_loc}
+    conti_batch = {col_name : batch[args.conti_loc[col_name]] for col_name in args.conti_loc}
+
+    correct = batch[col['answerCode']]
+    mask = batch[-1]
 
     # change to float
     mask = mask.float()
@@ -211,23 +225,21 @@ def process_batch(batch):
     interaction_mask[:, 0] = 0
     interaction = (interaction * interaction_mask).to(torch.int64)
 
-    #  test_id, question_id, tag
-    test = ((test + 1) * mask).int()
-    question = ((question + 1) * mask).int()
-    tag = ((tag + 1) * mask).int()
 
-    ############################
-    test_question = ((test_question + 1) * mask).int()
-    ############################
+    # category type apply + 1, and mask
+    for col_name in cate_batch:
+        cate_batch[col_name] = (cate_batch[col_name] + 1 * mask).to(torch.int64).to(args.device)
 
-    # gather index
-    # 마지막 sequence만 사용하기 위한 index
-    gather_index = torch.tensor(np.count_nonzero(mask, axis=1))
-    gather_index = gather_index.view(-1, 1) - 1
+    # contiuous type apply mask
+    for col_name in conti_batch:
+        conti_batch[col_name] = (conti_batch[col_name] * mask).to(torch.float32).to(args.device)
 
-    # return (test, question, tag, correct, mask, interaction)
-    # return (test, question, tag, correct, mask, interaction, gather_index)
-    return (test, question, tag, correct, test_question, mask, interaction, gather_index)
+    # device memory로 이동
+    correct = correct.to(args.device)
+    mask = mask.to(args.device)
+    interaction = interaction.to(args.device)
+
+    return cate_batch, conti_batch, mask, interaction, correct
     
 
 
