@@ -19,7 +19,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--file_name", default="train_data_3.csv", type=str, help="train file name"
+        # "--file_name", default="train_data_3.csv", type=str, help="train file name"
+        "--file_name", default="total_data.csv", type=str, help="train file name"
     )
 
     parser.add_argument(
@@ -33,7 +34,7 @@ def parse_args():
         "--output_dir", default="output/", type=str, help="output directory"
     )
     parser.add_argument(
-        "--test_file_name", default="test_data.csv", type=str, help="test file name"
+        "--test_file_name", default="total_data.csv", type=str, help="test file name"
     )
 
     parser.add_argument(
@@ -74,13 +75,23 @@ def parse_args():
     parser.add_argument("--stride", default=10, type=int, help="stride")
     parser.add_argument("--shuffle_n", default=10, type=int, help="number of shuffle")
 
-    # lstm
-    # layer / emb_dim 256 or 512 / seq_len 작게?? -> 크게 할수록 좋을텐데
-
-    # lstmattn : transformer
-    # layer / heads / emb_dim / seq_len
     
-    # bert
+    # categorical featurs
+    parser.add_argument('--cate_feats', type=list, nargs="+",
+                        default=["assessmentItemID", 
+                                'testId',
+                                "bigCate",
+                                'KnowledgeTag',
+                        ],
+                        help="category features")
+
+    # continous featurs
+    parser.add_argument('--conti_feats', type=list, nargs="+",
+                        default=['elapsed',
+                                'user_bigCate_acc',
+                                'user_bigCate_elapsedTime',
+                        ], 
+                        help = "numeric features")
 
 
 
