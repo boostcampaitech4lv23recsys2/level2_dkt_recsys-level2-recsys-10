@@ -80,16 +80,20 @@ def parse_args():
     parser.add_argument('--cate_feats', type=list, nargs="+",
                         default=["assessmentItemID", 
                                 'testId',
-                                "bigCate",
+                                'Bigcat',
                                 'KnowledgeTag',
+
                         ],
                         help="category features")
 
     # continous featurs
     parser.add_argument('--conti_feats', type=list, nargs="+",
                         default=['elapsed',
-                                'user_bigCate_acc',
-                                'user_bigCate_elapsedTime',
+                                'user_avg', 'item_avg', 'Bigcat_avg', 'tag_avg',
+                                'user_std', 'item_std', 'Bigcat_std', 'tag_std',
+                                'user_retCumacc', 'item_retCumacc'
+                                'user_cumacc', 'user_Bigcat_cumacc', 
+
                         ], 
                         help = "numeric features")
 
