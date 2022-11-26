@@ -437,22 +437,31 @@ class LastQuery(nn.Module):                 # Post Padding
 
 
         cate, conti, mask, interaction, _ = input
+        # print(cate)
 
+
+        ###################################
         batch_size = interaction.size(0)
         seq_len = interaction.size(1)
 
         # 신나는 embedding
         embed_interaction = self.embedding_interaction(interaction)
+        # print(embed_interaction)
+
+        # print(self.embedding_cate.items())
+
 
         embed_cate = [
                     embedding(cate[col_name])
                     for col_name, embedding in self.embedding_cate.items()
                     ]
         embed_cate.insert(0, embed_interaction)
+        # print(embed_cate)
 
         embed_cate = torch.cat(embed_cate, 2)
         embed_cate = self.cate_proj(embed_cate)  # projection
-
+        
+        # print(embed_cate)
         cont_feats = torch.stack([col for col in conti.values()], 2)
         embed_cont = self.embedding_conti(cont_feats)
 
@@ -460,7 +469,7 @@ class LastQuery(nn.Module):                 # Post Padding
         embed = torch.cat([embed_cate, embed_cont], 2)
 
         embed = self.comb_proj(embed)
-
+        # print(f'embed : {embed}')
 
         # Positional Embedding
         # last query에서는 positional embedding을 하지 않음
@@ -500,12 +509,12 @@ class LastQuery(nn.Module):                 # Post Padding
         out = self.ln2(out)
 
         ###################### LSTM #####################
-        hidden = self.init_hidden(batch_size)
-        out, hidden = self.lstm(out, hidden)
+        # hidden = self.init_hidden(batch_size)
+        # out, hidden = self.lstm(out, hidden)
 
         ###################### GRU #####################
-        # hidden = self.init_hidden(batch_size)
-        # out, hidden = self.gru(out, hidden[0])
+        hidden = self.init_hidden(batch_size)
+        out, hidden = self.gru(out, hidden[0])
 
         ###################### DNN #####################
         out = out.contiguous().view(batch_size, -1, self.hidden_dim)
