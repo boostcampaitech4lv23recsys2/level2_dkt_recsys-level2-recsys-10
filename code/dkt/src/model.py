@@ -30,6 +30,7 @@ class LSTM(nn.Module):
 
         # embedding combination projection
         self.comb_proj = nn.Linear((self.hidden_dim // 3) * 4, self.hidden_dim)
+        
 
         self.lstm = nn.LSTM(
             self.hidden_dim, self.hidden_dim, self.n_layers, batch_first=True
@@ -82,13 +83,13 @@ class LSTMATTN(nn.Module):
         # interaction은 현재 correct로 구성되어있다. correct(1, 2) + padding(0)
         self.embedding_interaction = nn.Embedding(3, self.hidden_dim // 3)
         self.embedding_test = nn.Embedding(self.args.n_test + 1, self.hidden_dim // 3)
-        self.embedding_question = nn.Embedding(
-            self.args.n_questions + 1, self.hidden_dim // 3
-        )
+        self.embedding_question = nn.Embedding(self.args.n_questions + 1, self.hidden_dim // 3)
         self.embedding_tag = nn.Embedding(self.args.n_tag + 1, self.hidden_dim // 3)
+        self.embedding_ass_aver = nn.Embedding(self.args.n_ass_aver + 1, self.hidden_dim // 3)
+        self.embedding_user_aver = nn.Embedding(self.args.n_user_aver + 1, self.hidden_dim // 3)
 
         # embedding combination projection
-        self.comb_proj = nn.Linear((self.hidden_dim // 3) * 4, self.hidden_dim)
+        self.comb_proj = nn.Linear((self.hidden_dim // 3) * 6, self.hidden_dim)
 
         self.lstm = nn.LSTM(
             self.hidden_dim, self.hidden_dim, self.n_layers, batch_first=True
@@ -111,9 +112,10 @@ class LSTMATTN(nn.Module):
         self.activation = nn.Sigmoid()
 
     def forward(self, input):
-
-        test, question, tag, _, mask, interaction = input
-
+        #test, question, tag, _, mask, interaction = input
+        #print(input)
+        #test, question, tag, _, mask, interaction, ass_aver, user_aver= input  
+        test, question, tag, _, mask, ass_aver, user_aver, interaction= input  
         batch_size = interaction.size(0)
 
         # Embedding
@@ -121,6 +123,15 @@ class LSTMATTN(nn.Module):
         embed_test = self.embedding_test(test)
         embed_question = self.embedding_question(question)
         embed_tag = self.embedding_tag(tag)
+        embed_ass_aver = self.embedding_ass_aver(ass_aver)
+        embed_user_aver = self.embedding_user_aver(user_aver)
+
+        # print(embed_interaction.shape)
+        # print(embed_test.shape)
+        # print(embed_question.shape)
+        # print(embed_tag.shape)
+        # print(embed_ass_aver.shape)
+        # print(embed_user_aver.shape)
 
         embed = torch.cat(
             [
@@ -128,10 +139,12 @@ class LSTMATTN(nn.Module):
                 embed_test,
                 embed_question,
                 embed_tag,
+                embed_ass_aver,
+                embed_user_aver
             ],
             2,
         )
-
+        # print(embed.shape)
         X = self.comb_proj(embed)
 
         out, _ = self.lstm(X)
@@ -161,11 +174,8 @@ class Bert(nn.Module):
         # Embedding
         # interaction은 현재 correct으로 구성되어있다. correct(1, 2) + padding(0)
         self.embedding_interaction = nn.Embedding(3, self.hidden_dim // 3)
-
         self.embedding_test = nn.Embedding(self.args.n_test + 1, self.hidden_dim // 3)
-        self.embedding_question = nn.Embedding(
-            self.args.n_questions + 1, self.hidden_dim // 3
-        )
+        self.embedding_question = nn.Embedding(self.args.n_questions + 1, self.hidden_dim // 3)
 
         self.embedding_tag = nn.Embedding(self.args.n_tag + 1, self.hidden_dim // 3)
 

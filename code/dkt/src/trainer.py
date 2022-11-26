@@ -181,8 +181,8 @@ def get_model(args):
 
 # 배치 전처리
 def process_batch(batch):
-
-    test, question, tag, correct, mask = batch
+    test, question, tag, correct, ass_aver, user_aver, mask = batch
+    #test, question, tag, correct, cls, mask = batch
 
     # change to float
     mask = mask.float()
@@ -199,8 +199,11 @@ def process_batch(batch):
     test = ((test + 1) * mask).int()
     question = ((question + 1) * mask).int()
     tag = ((tag + 1) * mask).int()
-
-    return (test, question, tag, correct, mask, interaction)
+    ass_aver = ((ass_aver + 1) * mask).int()
+    user_aver = ((user_aver + 1) * mask).int()
+    #cls = ((cls + 1) * mask).to(torch.int64)
+    #return (test, question, tag, correct, mask, cls, interaction)
+    return (test, question, tag, correct, mask, ass_aver, user_aver, interaction)
 
 
 # loss계산하고 parameter update!
