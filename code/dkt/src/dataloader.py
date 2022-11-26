@@ -31,9 +31,15 @@ class Preprocess:
             random.seed(seed)  # fix to default seed 0
             random.shuffle(data)
 
-        size = int(len(data) * ratio)
-        data_1 = data[:size]
-        data_2 = data[size:]
+        if self.args.split == "user":
+            size = int(len(data) * ratio)
+            data_1 = data[:size]
+            data_2 = data[size:]
+
+        elif self.args.split == "k-fold":
+            data_1 = data[:]
+            data_2 = None
+        
 
         return data_1, data_2
 
@@ -78,9 +84,10 @@ class Preprocess:
         df = pd.read_csv(csv_file_path)  # , nrows=100000)
 
         if is_train:
-            df = df[df["grade"] == 1]
+            df = df[df["train"] == 1]
         else:
-            df = df[(df['answerCode']==-1) | (df['answerCode']==0)]
+            df = df[df["train"] == 0]
+            # df = df[(df['answerCode']==-1) | (df['answerCode']==0)]
 
         df = self.__feature_engineering(df)
         df = self.__preprocessing(df, is_train)
