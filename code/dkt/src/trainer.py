@@ -14,7 +14,7 @@ from .optimizer import get_optimizer
 from .scheduler import get_scheduler
 
 
-def run(args, train_data, valid_data, model, k_th=0):
+def run(args, train_data, valid_data, model, kf_auc, kf_n=0):
     torch.cuda.empty_cache()
     gc.collect()
 
@@ -66,8 +66,8 @@ def run(args, train_data, valid_data, model, k_th=0):
             # torch.nn.DataParallel로 감싸진 경우 원래의 model을 가져옵니다.
             model_to_save = model.module if hasattr(model, "module") else model
             name = 'model.pt'
-            if(k_th != 0):
-                name = f'model_{k_th}.pt'
+            if(kf_n != 0):
+                name = f'model_{kf_n}.pt'
             save_checkpoint(
                 {
                     "epoch": epoch + 1,
@@ -77,19 +77,19 @@ def run(args, train_data, valid_data, model, k_th=0):
                 name,
             )
             early_stopping_counter = 0
-        # else:                             # early_stopping
-        #     early_stopping_counter += 1
-        #     if early_stopping_counter >= args.patience:
-        #         print(
-        #             f"EarlyStopping counter: {early_stopping_counter} out of {args.patience}"
-        #         )
-        #         break
+        else:                             # early_stopping
+            early_stopping_counter += 1
+            if early_stopping_counter >= args.patience:
+                print(
+                    f"EarlyStopping counter: {early_stopping_counter} out of {args.patience}"
+                )
+                break
 
         # scheduler
         if args.scheduler == "plateau":
             scheduler.step(best_auc)
     
-    # kfold_auc_list.append(best_auc)
+    kf_auc.append(best_auc)
         
 
 
@@ -270,7 +270,7 @@ def update_params(loss, model, optimizer, scheduler, args):
 
 
 def save_checkpoint(state, model_dir, model_filename):
-    print("saving model ...")
+    print("saving model ...\n")
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
     torch.save(state, os.path.join(model_dir, model_filename))
