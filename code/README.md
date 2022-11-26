@@ -39,7 +39,7 @@ Item_mean_solved_time : 문제를 맞춘 유저의 평균 풀이시간
 - `item_retCumacc` : 문제별 최근 5개 정답률
 
 
-- > **카테고리(대분류) 별**
+> **카테고리(대분류) 별**
 - `Bigcat_avg` : 카테고리별 평균 정답률
 - `Bigcat_time_avg` : 카테고리별 평균 풀이시간
 - `Bigcat_std` : 카테고리별 표준편차
