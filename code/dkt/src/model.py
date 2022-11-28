@@ -290,21 +290,8 @@ class LastQuery(nn.Module):                 # Post Padding
         # Embedding 
         # interaction은 현재 correct으로 구성되어있다. correct(1, 2) + padding(0)
         self.embedding_interaction = nn.Embedding(3, self.hidden_dim//3)
-        
-        # self.embedding_test = nn.Embedding(self.args.n_test + 1, self.hidden_dim//3)
-        # self.embedding_question = nn.Embedding(self.args.n_questions + 1, self.hidden_dim//3)
-        # self.embedding_tag = nn.Embedding(self.args.n_tag + 1, self.hidden_dim//3)
-        # ############################
-        # self.embedding_test_question = nn.Embedding(self.args.n_test_question + 1, self.hidden_dim//3)
-        # ############################
-
-        # self.embedding_position = nn.Embedding(self.args.max_seq_len, self.hidden_dim)
-
-        # # embedding combination projection
-        # self.comb_proj = nn.Linear((self.hidden_dim//3)*5, self.hidden_dim)         # embedding 개수만큼 인풋 값 곱해줘야됨
-
-
-         ## category Embedding
+                
+        ## category Embedding
         self.embedding_cate = nn.ModuleDict(
             {
                 col: nn.Embedding(num + 1, self.hidden_dim // 3)
@@ -407,61 +394,23 @@ class LastQuery(nn.Module):                 # Post Padding
 
 
     def forward(self, input):
-        # # test, question, tag, _, mask, interaction, index = input
-        # ############################
-        # test, question, tag, _, test_question, mask, interaction, index = input
-        # ############################
-        # batch_size = interaction.size(0)
-        # seq_len = interaction.size(1)
-        # # print(f'batch_size : {batch_size}   seq_len : {seq_len}')
-
-        # # 신나는 embedding
-        # embed_interaction = self.embedding_interaction(interaction)
-        # embed_test = self.embedding_test(test)
-        # embed_question = self.embedding_question(question)
-        # embed_tag = self.embedding_tag(tag)
-        # ############################
-        # embed_test_question = self.embedding_test_question(test_question)
-        # ############################
-
-        # embed = torch.cat([embed_interaction,
-        #                    embed_test,
-        #                    embed_question,
-        #                    embed_tag,
-        #                    ############################
-        #                    embed_test_question,
-        #                    ############################
-        #                    ], 2)
-
-        # embed = self.comb_proj(embed)
-
-
         cate, conti, mask, interaction, _ = input
-        # print(cate)
-
-
         ###################################
         batch_size = interaction.size(0)
         seq_len = interaction.size(1)
 
         # 신나는 embedding
         embed_interaction = self.embedding_interaction(interaction)
-        # print(embed_interaction)
-
-        # print(self.embedding_cate.items())
-
 
         embed_cate = [
                     embedding(cate[col_name])
                     for col_name, embedding in self.embedding_cate.items()
                     ]
         embed_cate.insert(0, embed_interaction)
-        # print(embed_cate)
 
         embed_cate = torch.cat(embed_cate, 2)
         embed_cate = self.cate_proj(embed_cate)  # projection
         
-        # print(embed_cate)
         cont_feats = torch.stack([col for col in conti.values()], 2)
         embed_cont = self.embedding_conti(cont_feats)
 
@@ -469,7 +418,6 @@ class LastQuery(nn.Module):                 # Post Padding
         embed = torch.cat([embed_cate, embed_cont], 2)
 
         embed = self.comb_proj(embed)
-        # print(f'embed : {embed}')
 
         # Positional Embedding
         # last query에서는 positional embedding을 하지 않음

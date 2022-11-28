@@ -31,6 +31,10 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--model_name_k_fold", default="model", type=str, help="model file name"
+    )
+
+    parser.add_argument(
         "--output_dir", default="output/", type=str, help="output directory"
     )
     parser.add_argument(
@@ -84,18 +88,23 @@ def parse_args():
                                 'testId',
                                 'Bigcat',
                                 'KnowledgeTag',
+                                'timeClass',
+                                # 'Bigcat_class',
+
+                                # 'day_diff',
 
                         ],
                         help="category features")
 
     # continous featurs
     parser.add_argument('--conti_feats', type=list, nargs="+",
-                        default=['elapsed',
+                        default=['prior_elapsed', #'current_elapsed',
                                 'user_avg', 'item_avg', 'Bigcat_avg', 'tag_avg',
                                 'user_std', 'item_std', 'Bigcat_std', 'tag_std',
-                                'user_retCumacc', 'item_retCumacc',
+                                'user_retCumacc', # 'item_retCumacc',
                                 'user_cumacc', 'user_Bigcat_cumacc', 
-
+                                # 'tag_count', # 'assess_count',
+                                # 'day_diff',
                         ], 
                         help = "numeric features")
 

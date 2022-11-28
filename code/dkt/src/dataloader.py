@@ -23,7 +23,7 @@ class Preprocess:
     def get_test_data(self):
         return self.test_data
 
-    def split_data(self, data, ratio=0.7, shuffle=True, seed=0):
+    def split_data(self, data, ratio=0.9, shuffle=True, seed=0):
         """
         split data into two parts with a given ratio.
         """
@@ -103,7 +103,7 @@ class Preprocess:
         
         df = df.sort_values(by=["userID", "Timestamp"], axis=0)
 
-        columns = [i for i in list(df) if i not in ["Timestamp", "dataset"]]
+        columns = [i for i in list(df) if i not in ["Timestamp", "train"]]
 
         group = (
             df[columns]

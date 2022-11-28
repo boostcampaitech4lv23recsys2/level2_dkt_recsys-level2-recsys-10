@@ -88,6 +88,8 @@ def run(args, train_data, valid_data, model, kf_auc, kf_n=0):
         # scheduler
         if args.scheduler == "plateau":
             scheduler.step(best_auc)
+        else:
+            scheduler.step()
     
     kf_auc.append(best_auc)
         
@@ -276,9 +278,11 @@ def save_checkpoint(state, model_dir, model_filename):
     torch.save(state, os.path.join(model_dir, model_filename))
 
 
-def load_model(args):
-
-    model_path = os.path.join(args.model_dir, args.model_name)
+def load_model(args, idx):
+    if args.split == 'user':
+        model_path = os.path.join(args.model_dir, args.model_name)
+    elif args.split == 'k-fold':
+        model_path = os.path.join(args.model_dir, args.model_name_k_fold + f'_{idx}.pt')
     print("Loading Model from:", model_path)
     load_state = torch.load(model_path)
     model = get_model(args)
