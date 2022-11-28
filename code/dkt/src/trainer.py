@@ -2,18 +2,29 @@ import math
 import os
 
 import torch
+import numpy as np
 import wandb
+import gc
 
 from .criterion import get_criterion
-from .dataloader import get_loaders
+from .dataloader import get_loaders, data_augmentation
 from .metric import get_metric
-from .model import LSTM, LSTMATTN, Bert
+from .model import LSTM, LSTMATTN, Bert, LastQuery
 from .optimizer import get_optimizer
 from .scheduler import get_scheduler
 
 
-def run(args, train_data, valid_data, model):
-    train_loader, valid_loader = get_loaders(args, train_data, valid_data)
+def run(args, train_data, valid_data, model, kf_auc, kf_n=0):
+    torch.cuda.empty_cache()
+    gc.collect()
+
+    # data augmentation
+    augmented_train_data = data_augmentation(train_data, args)
+    if len(augmented_train_data) != len(train_data):
+        print(f"Data Augmentation applied. Train data {len(train_data)} -> {len(augmented_train_data)}\n")
+
+    # train_loader, valid_loader = get_loaders(args, train_data, valid_data)
+    train_loader, valid_loader = get_loaders(args, augmented_train_data, valid_data)
 
     # only when using warmup scheduler
     args.total_steps = int(math.ceil(len(train_loader.dataset) / args.batch_size)) * (
@@ -25,6 +36,7 @@ def run(args, train_data, valid_data, model):
     scheduler = get_scheduler(optimizer, args)
 
     best_auc = -1
+    best_acc = -1
     early_stopping_counter = 0
     for epoch in range(args.n_epochs):
 
@@ -53,6 +65,9 @@ def run(args, train_data, valid_data, model):
             best_auc = auc
             # torch.nn.DataParallel로 감싸진 경우 원래의 model을 가져옵니다.
             model_to_save = model.module if hasattr(model, "module") else model
+            name = 'model.pt'
+            if(kf_n != 0):
+                name = f'model_{kf_n}.pt'
             save_checkpoint(
                 {
                     "epoch": epoch + 1,
@@ -62,7 +77,7 @@ def run(args, train_data, valid_data, model):
                 args.model_name,
             )
             early_stopping_counter = 0
-        else:
+        else:                             # early_stopping
             early_stopping_counter += 1
             if early_stopping_counter >= args.patience:
                 print(
@@ -73,6 +88,11 @@ def run(args, train_data, valid_data, model):
         # scheduler
         if args.scheduler == "plateau":
             scheduler.step(best_auc)
+        else:
+            scheduler.step()
+    
+    kf_auc.append(best_auc)
+        
 
 
 def train(train_loader, model, optimizer, scheduler, args):
@@ -82,9 +102,10 @@ def train(train_loader, model, optimizer, scheduler, args):
     total_targets = []
     losses = []
     for step, batch in enumerate(train_loader):
-        input = list(map(lambda t: t.to(args.device), process_batch(batch)))
+        # input = list(map(lambda t: t.to(args.device), process_batch(batch)))
+        input = process_batch(batch, args)
         preds = model(input)
-        targets = input[3]  # correct
+        targets = input[-1]  # correct
 
         loss = compute_loss(preds, targets)
         update_params(loss, model, optimizer, scheduler, args)
@@ -116,10 +137,10 @@ def validate(valid_loader, model, args):
     total_preds = []
     total_targets = []
     for step, batch in enumerate(valid_loader):
-        input = list(map(lambda t: t.to(args.device), process_batch(batch)))
+        input = process_batch(batch, args)
 
         preds = model(input)
-        targets = input[3]  # correct
+        targets = input[-1]  # correct
 
         # predictions
         preds = preds[:, -1]
@@ -147,16 +168,18 @@ def inference(args, test_data, model):
     total_preds = []
 
     for step, batch in enumerate(test_loader):
-        input = list(map(lambda t: t.to(args.device), process_batch(batch)))
+        input = process_batch(batch, args)
 
         preds = model(input)
 
         # predictions
         preds = preds[:, -1]
+        # preds = torch.nn.Sigmoid()(preds)
         preds = preds.cpu().detach().numpy()
         total_preds += list(preds)
 
     write_path = os.path.join(args.output_dir, "submission.csv")
+
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
     with open(write_path, "w", encoding="utf8") as w:
@@ -175,14 +198,23 @@ def get_model(args):
         model = LSTMATTN(args)
     if args.model == "bert":
         model = Bert(args)
+    if args.model == "lastquery":
+        model = LastQuery(args)
+
 
     return model
 
 
 # 배치 전처리
-def process_batch(batch):
-    print(batch)
-    test, question, tag, correct, mask = batch
+def process_batch(batch, args):
+
+    col = args.columns
+
+    cate_batch =  {col_name : batch[args.cate_loc[col_name]] for col_name in args.cate_loc}
+    conti_batch = {col_name : batch[args.conti_loc[col_name]] for col_name in args.conti_loc}
+
+    correct = batch[col['answerCode']]
+    mask = batch[-1]
 
     # change to float
     mask = mask.float()
@@ -195,17 +227,22 @@ def process_batch(batch):
     interaction_mask[:, 0] = 0
     interaction = (interaction * interaction_mask).to(torch.int64)
 
-    #  test_id, question_id, tag
-    test = ((test + 1) * mask).int()
-    question = ((question + 1) * mask).int()
-    tag = ((tag + 1) * mask).int()
 
-    iem_num = ((iem_num + 1) * mask).int()
-    iem_seq = ((iem_seq + 1) * mask).int()
-    big_cat = ((big_cat + 1) * mask).int()
-    small_cat = ((small_cat + 1) * mask).int()
+    # category type apply + 1, and mask
+    for col_name in cate_batch:
+        cate_batch[col_name] = (cate_batch[col_name] + 1 * mask).to(torch.int64).to(args.device)
 
-    return (test, question, tag, item_num, item_seq, big_cat, small_cat, correct, mask, interaction)
+    # contiuous type apply mask
+    for col_name in conti_batch:
+        conti_batch[col_name] = (conti_batch[col_name] * mask).to(torch.float32).to(args.device)
+
+    # device memory로 이동
+    correct = correct.to(args.device)
+    mask = mask.to(args.device)
+    interaction = interaction.to(args.device)
+
+    return cate_batch, conti_batch, mask, interaction, correct
+    
 
 
 # loss계산하고 parameter update!
@@ -220,6 +257,7 @@ def compute_loss(preds, targets):
 
     # 마지막 시퀀드에 대한 값만 loss 계산
     loss = loss[:, -1]
+    # loss = torch.gather(loss, 1, index)
     loss = torch.mean(loss)
     return loss
 
@@ -234,16 +272,18 @@ def update_params(loss, model, optimizer, scheduler, args):
 
 
 def save_checkpoint(state, model_dir, model_filename):
-    print("saving model ...")
+    print("saving model ...\n")
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
     print(model_filename)
     torch.save(state, os.path.join(model_dir, model_filename))
 
 
-def load_model(args):
-
-    model_path = os.path.join(args.model_dir, args.model_name)
+def load_model(args, idx):
+    if args.split == 'user':
+        model_path = os.path.join(args.model_dir, args.model_name)
+    elif args.split == 'k-fold':
+        model_path = os.path.join(args.model_dir, args.model_name_k_fold + f'_{idx}.pt')
     print("Loading Model from:", model_path)
     load_state = torch.load(model_path)
     model = get_model(args)
