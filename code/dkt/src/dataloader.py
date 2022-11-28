@@ -41,8 +41,8 @@ class Preprocess:
         np.save(le_path, encoder.classes_)
 
     def __preprocessing(self, df, is_train=True):
-        cate_cols = ["assessmentItemID", "testId", "KnowledgeTag", "ass_aver", "user_aver"]
-        #cate_cols = ["assessmentItemID", "testId", "KnowledgeTag", "class"]
+        #cate_cols = ["assessmentItemID", "testId", "KnowledgeTag", "ass_aver", "user_aver"]
+        cate_cols = ["assessmentItemID", "testId", "KnowledgeTag", "ass_aver", "user_aver","big"]
 
         if not os.path.exists(self.args.asset_dir):
             os.makedirs(self.args.asset_dir)
@@ -97,7 +97,13 @@ class Preprocess:
         df['user_aver'] = df['user_aver'].apply(self.x_100)
         #df['user_aver'] = df['user_aver'].astype('long')
 
-        #df["class"] = df["assessmentItemID"].str[2]
+        #대분류
+        df["big"] = df["assessmentItemID"].str[2]
+        # big = df.groupby(['big'])['answerCode'].agg(['mean'])
+        # df = pd.merge(df, big, on=['big'], how="left")
+        # df = df.rename(columns={'mean':'big'})
+        # df['big'] = df['big'].apply(self.x_100)
+
         return df
 
     def load_data_from_file(self, file_name, is_train=True):
@@ -117,19 +123,19 @@ class Preprocess:
         self.args.n_tag = len(
             np.load(os.path.join(self.args.asset_dir, "KnowledgeTag_classes.npy"))
         )
-        # self.args.n_class = len(
-        #     np.load(os.path.join(self.args.asset_dir, "class_classes.npy"))
-        # )
         self.args.n_ass_aver = len(
             np.load(os.path.join(self.args.asset_dir, "ass_aver_classes.npy"))
         )
         self.args.n_user_aver = len(
             np.load(os.path.join(self.args.asset_dir, "user_aver_classes.npy"))
         )
+        self.args.n_big = len(
+            np.load(os.path.join(self.args.asset_dir, "big_classes.npy"))
+        )
 
         df = df.sort_values(by=["userID", "Timestamp"], axis=0)
         columns = ["userID", "assessmentItemID", "testId", "answerCode", "KnowledgeTag",
-                    "ass_aver","user_aver"]
+                    "ass_aver","user_aver","big"]
         #columns = ["userID", "assessmentItemID", "testId", "answerCode", "KnowledgeTag", "class"]
         group = (
             df[columns]
@@ -140,9 +146,9 @@ class Preprocess:
                     r["assessmentItemID"].values,
                     r["KnowledgeTag"].values,
                     r["answerCode"].values,
-                    #r["class"].values,
                     r["ass_aver"].values,
                     r["user_aver"].values,
+                    r["big"].values,
                 )
             )
         )
@@ -167,11 +173,12 @@ class DKTDataset(torch.utils.data.Dataset):
         # 각 data의 sequence length
         seq_len = len(row[0])
 
-        test, question, tag, correct, ass_aver, user_aver = row[0], row[1], row[2], row[3], row[4], row[5]
+        test, question, tag, correct, ass_aver, user_aver, big = (
+            row[0], row[1], row[2], row[3], row[4], row[5], row[6])
         #test, question, tag, correct, cls = row[0], row[1], row[2], row[3], row[4]
 
         #cate_cols = [test, question, tag, correct, cls]
-        cate_cols = [test, question, tag, correct, ass_aver, user_aver]
+        cate_cols = [test, question, tag, correct, ass_aver, user_aver, big]
 
         # max seq len을 고려하여서 이보다 길면 자르고 아닐 경우 그대로 냅둔다
         if seq_len > self.args.max_seq_len:

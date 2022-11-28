@@ -46,7 +46,7 @@ def run(args, train_data, valid_data, model):
                 "train_auc_epoch": train_auc,
                 "train_acc_epoch": train_acc,
                 "valid_auc_epoch": auc,
-                "valid_acc_epoch": acc,
+                 "valid_acc_epoch": acc,
             }
         )
         if auc > best_auc:
@@ -181,7 +181,7 @@ def get_model(args):
 
 # 배치 전처리
 def process_batch(batch):
-    test, question, tag, correct, ass_aver, user_aver, mask = batch
+    test, question, tag, correct, ass_aver, user_aver, big, mask = batch
     #test, question, tag, correct, cls, mask = batch
 
     # change to float
@@ -201,9 +201,9 @@ def process_batch(batch):
     tag = ((tag + 1) * mask).int()
     ass_aver = ((ass_aver + 1) * mask).int()
     user_aver = ((user_aver + 1) * mask).int()
-    #cls = ((cls + 1) * mask).to(torch.int64)
+    big = ((big + 1) * mask).int()
     #return (test, question, tag, correct, mask, cls, interaction)
-    return (test, question, tag, correct, mask, ass_aver, user_aver, interaction)
+    return (test, question, tag, correct, mask, ass_aver, user_aver,big, interaction)
 
 
 # loss계산하고 parameter update!

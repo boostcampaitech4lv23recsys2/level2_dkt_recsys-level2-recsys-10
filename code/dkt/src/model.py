@@ -87,9 +87,11 @@ class LSTMATTN(nn.Module):
         self.embedding_tag = nn.Embedding(self.args.n_tag + 1, self.hidden_dim // 3)
         self.embedding_ass_aver = nn.Embedding(self.args.n_ass_aver + 1, self.hidden_dim // 3)
         self.embedding_user_aver = nn.Embedding(self.args.n_user_aver + 1, self.hidden_dim // 3)
+        self.embedding_big = nn.Embedding(self.args.n_big + 1, self.hidden_dim // 3)
+
 
         # embedding combination projection
-        self.comb_proj = nn.Linear((self.hidden_dim // 3) * 6, self.hidden_dim)
+        self.comb_proj = nn.Linear((self.hidden_dim // 3) * 7, self.hidden_dim)
 
         self.lstm = nn.LSTM(
             self.hidden_dim, self.hidden_dim, self.n_layers, batch_first=True
@@ -115,7 +117,8 @@ class LSTMATTN(nn.Module):
         #test, question, tag, _, mask, interaction = input
         #print(input)
         #test, question, tag, _, mask, interaction, ass_aver, user_aver= input  
-        test, question, tag, _, mask, ass_aver, user_aver, interaction= input  
+        #print(input)
+        test, question, tag, _, mask, ass_aver, user_aver, big, interaction= input  
         batch_size = interaction.size(0)
 
         # Embedding
@@ -125,6 +128,7 @@ class LSTMATTN(nn.Module):
         embed_tag = self.embedding_tag(tag)
         embed_ass_aver = self.embedding_ass_aver(ass_aver)
         embed_user_aver = self.embedding_user_aver(user_aver)
+        embed_big = self.embedding_big(big)
 
         # print(embed_interaction.shape)
         # print(embed_test.shape)
@@ -140,7 +144,8 @@ class LSTMATTN(nn.Module):
                 embed_question,
                 embed_tag,
                 embed_ass_aver,
-                embed_user_aver
+                embed_user_aver,
+                embed_big
             ],
             2,
         )
