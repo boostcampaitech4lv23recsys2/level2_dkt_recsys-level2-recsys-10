@@ -41,7 +41,7 @@ class Preprocess:
         np.save(le_path, encoder.classes_)
 
     def __preprocessing(self, df, is_train=True):
-        cate_cols = ["assessmentItemID", "testId", "KnowledgeTag"]
+        cate_cols = ["assessmentItemID", "testId", "KnowledgeTag", "item_num", "item_seq", "big_cat", "small_cat"]
 
         if not os.path.exists(self.args.asset_dir):
             os.makedirs(self.args.asset_dir)
@@ -73,12 +73,40 @@ class Preprocess:
             )
             return int(timestamp)
 
-        df["Timestamp"] = df["Timestamp"].apply(convert_time)
+        # df["Timestamp"] = df["Timestamp"].apply(convert_time)
 
         return df
 
     def __feature_engineering(self, df):
         # TODO
+        ## 유저별 시퀀스를 고려하기 위해 아래와 같이 정렬
+        df.sort_values(by=['userID','Timestamp'], inplace=True)
+        df['Timestamp'] = pd.to_datetime(df['Timestamp'])
+
+        ## 문제 푼 시간 재정의
+        # 같은 문제 몇번째 푸는지
+        df['same_item_cnt'] = df.groupby(['userID', 'assessmentItemID']).cumcount() + 1
+        
+        # 유저, test, same_item_cnt 구분했을 때 문제 푸는데 걸린 시간 > shift, fillna x
+        diff_shift = df.loc[:, ['userID', 'testId', 'Timestamp', 'same_item_cnt']].groupby(['userID', 'testId', 'same_item_cnt']).diff().shift(-1)
+        diff_shift = diff_shift['Timestamp'].apply(lambda x: x.total_seconds())
+        df['solved_time_shift'] = diff_shift
+
+        # 1. agg 값 구하기
+        ## 1-1. 유저/문제/시험지/태그별 평균 정답률
+
+        ## 1-2. 유저/문제/시험지별 평균 풀이시간
+
+        ## 1-3. 현재 유저의 해당 문제지 평균 정답률/풀이시간
+        df['user_current_avg'] = df.groupby(['userID', 'testId', 'same_item_cnt'])['answerCode'].transform('mean')
+        df['user_current_time_avg'] = df.groupby(['userID', 'testId', 'same_item_cnt'])['solved_time_shift'].transform('mean')
+        
+        # 2. 컬럼 추가
+        df['item_num'] = df['assessmentItemID'].str[7:]
+        df['item_seq'] = df.groupby(['userID', 'testId', 'same_item_cnt']).cumcount() +1
+        df["big_cat"] = df["testId"].str[2]
+        df["small_cat"] = df["testId"].str[7:10]
+        
         return df
 
     def load_data_from_file(self, file_name, is_train=True):
@@ -98,9 +126,24 @@ class Preprocess:
         self.args.n_tag = len(
             np.load(os.path.join(self.args.asset_dir, "KnowledgeTag_classes.npy"))
         )
+        self.args.n_item_num = len(
+            np.load(os.path.join(self.args.asset_dir, "item_num_classes.npy"))
+        )
+        self.args.n_item_seq = len(
+            np.load(os.path.join(self.args.asset_dir, "item_seq_classes.npy"))
+        )
+        self.args.n_big_cat = len(
+            np.load(os.path.join(self.args.asset_dir, "big_cat_classes.npy"))
+        )
+        self.args.n_small_cat = len(
+            np.load(os.path.join(self.args.asset_dir, "small_cat_classes.npy"))
+        )
 
         df = df.sort_values(by=["userID", "Timestamp"], axis=0)
-        columns = ["userID", "assessmentItemID", "testId", "answerCode", "KnowledgeTag"]
+        columns = ["userID", "assessmentItemID", "testId", "answerCode", "KnowledgeTag",
+                #    "user_current_avg", "user_current_time_avg",
+                   "item_num", "item_seq", "big_cat", "small_cat"
+                  ]
         group = (
             df[columns]
             .groupby("userID")
@@ -109,6 +152,12 @@ class Preprocess:
                     r["testId"].values,
                     r["assessmentItemID"].values,
                     r["KnowledgeTag"].values,
+                    # r["user_current_avg"].values,
+                    # r["user_current_time_avg"].values,
+                    r["item_num"].values,
+                    r["item_seq"].values,
+                    r["big_cat"].values,
+                    r["small_cat"].values,
                     r["answerCode"].values,
                 )
             )

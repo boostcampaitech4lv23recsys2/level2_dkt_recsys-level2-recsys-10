@@ -59,7 +59,7 @@ def run(args, train_data, valid_data, model):
                     "state_dict": model_to_save.state_dict(),
                 },
                 args.model_dir,
-                "model.pt",
+                args.model_name,
             )
             early_stopping_counter = 0
         else:
@@ -181,7 +181,7 @@ def get_model(args):
 
 # 배치 전처리
 def process_batch(batch):
-
+    print(batch)
     test, question, tag, correct, mask = batch
 
     # change to float
@@ -200,7 +200,12 @@ def process_batch(batch):
     question = ((question + 1) * mask).int()
     tag = ((tag + 1) * mask).int()
 
-    return (test, question, tag, correct, mask, interaction)
+    iem_num = ((iem_num + 1) * mask).int()
+    iem_seq = ((iem_seq + 1) * mask).int()
+    big_cat = ((big_cat + 1) * mask).int()
+    small_cat = ((small_cat + 1) * mask).int()
+
+    return (test, question, tag, item_num, item_seq, big_cat, small_cat, correct, mask, interaction)
 
 
 # loss계산하고 parameter update!
@@ -232,6 +237,7 @@ def save_checkpoint(state, model_dir, model_filename):
     print("saving model ...")
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
+    print(model_filename)
     torch.save(state, os.path.join(model_dir, model_filename))
 
 

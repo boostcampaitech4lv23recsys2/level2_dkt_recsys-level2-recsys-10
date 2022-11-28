@@ -169,6 +169,11 @@ class Bert(nn.Module):
 
         self.embedding_tag = nn.Embedding(self.args.n_tag + 1, self.hidden_dim // 3)
 
+        self.embedding_item_num = nn.Embedding(self.args.n_item_num + 1, self.hidden_dim // 3)
+        self.embedding_item_seq = nn.Embedding(self.args.n_item_seq + 1, self.hidden_dim // 3)
+        self.embedding_big_cat = nn.Embedding(self.args.n_big_cat + 1, self.hidden_dim // 3)
+        self.embedding_small_cat = nn.Embedding(self.args.n_small_cat + 1, self.hidden_dim // 3)
+        
         # embedding combination projection
         self.comb_proj = nn.Linear((self.hidden_dim // 3) * 4, self.hidden_dim)
 
@@ -191,7 +196,7 @@ class Bert(nn.Module):
         self.activation = nn.Sigmoid()
 
     def forward(self, input):
-        test, question, tag, _, mask, interaction = input
+        test, question, tag, item_num, item_seq, big_cat, small_cat, _, mask, interaction = input
         batch_size = interaction.size(0)
 
         # 신나는 embedding
@@ -203,12 +208,22 @@ class Bert(nn.Module):
 
         embed_tag = self.embedding_tag(tag)
 
+        embed_item_num = self.embedding_item_num(item_num)
+        embed_item_seq = self.embedding_item_num(item_seq)
+        embed_big_cat = self.embedding_big_cat(big_cat)
+        embed_small_cat = self.embedding_small_cat(small_cat)
+
         embed = torch.cat(
             [
                 embed_interaction,
                 embed_test,
                 embed_question,
                 embed_tag,
+                embed_item_num,
+                embed_item_seq,
+                embed_big_cat,
+                embed_small_cat
+                
             ],
             2,
         )
