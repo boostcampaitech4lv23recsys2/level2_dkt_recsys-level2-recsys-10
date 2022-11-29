@@ -167,9 +167,9 @@ class MyLGBM(MLModelBase):
             self.lgb_train,
             valid_sets=[self.lgb_train, self.lgb_valid],
             verbose_eval=100,
-            num_boost_round=500,
+            num_boost_round=2000,
             early_stopping_rounds=100,
-            valid_names=('validation'),
+            # valid_names=('validation'),
             callbacks=[wandb.lightgbm.wandb_callback()] )
 
         wandb.lightgbm.log_summary(self.model, save_model_checkpoint=True)
