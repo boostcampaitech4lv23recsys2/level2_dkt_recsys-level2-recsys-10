@@ -31,7 +31,7 @@ def main(args):
         kf_auc = []
         trainer.run(args, train_data, valid_data, model, kf_auc)
     elif args.split == 'k-fold':
-        model = trainer.get_model(args).to(args.device)
+        # model = trainer.get_model(args).to(args.device)
         n_splits = args.n_splits
         kf_auc = []
         kf = KFold(n_splits=n_splits)
@@ -40,11 +40,8 @@ def main(args):
             train_ = torch.utils.data.Subset(train_data, indices = train_idx)
             test_ = torch.utils.data.Subset(train_data, indices = test_idx)
 
-            # model = trainer.get_model(args).to(args.device)
-            if idx == 1: 
-                model = trainer.load_model(args, idx+1).to(args.device)
-            else:
-                pass
+            model = trainer.get_model(args).to(args.device)
+            
             trainer.run(args, train_, test_, model, kf_auc, idx+1)
         
         for i in range(n_splits):
