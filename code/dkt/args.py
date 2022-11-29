@@ -44,13 +44,13 @@ def parse_args():
 
 
     parser.add_argument(
-        "--max_seq_len", default=100, type=int, help="max sequence length"       # default : 20 / 1,728
+        "--max_seq_len", default=110, type=int, help="max sequence length"       # default : 20 / 1,728
     )
     parser.add_argument("--num_workers", default=1, type=int, help="number of workers")
 
     # 모델
     parser.add_argument(
-        "--hidden_dim", default=256, type=int, help="hidden dimension size"             # 64
+        "--hidden_dim", default=128, type=int, help="hidden dimension size"             # 64
     )
     parser.add_argument("--n_layers", default=1, type=int, help="number of layers")     # 2
     parser.add_argument("--n_heads", default=16, type=int, help="number of heads")      # 2
@@ -89,7 +89,7 @@ def parse_args():
                                 'Bigcat',
                                 'KnowledgeTag',
                                 'timeClass',
-                                # 'Bigcat_class',
+                                'Bigcat_class',
 
                                 # 'day_diff',
 
