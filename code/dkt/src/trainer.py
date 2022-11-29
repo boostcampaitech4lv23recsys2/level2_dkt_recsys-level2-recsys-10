@@ -153,10 +153,11 @@ def inference(args, test_data, model):
 
         # predictions
         preds = preds[:, -1]
+        preds = torch.nn.Sigmoid()(preds)
         preds = preds.cpu().detach().numpy()
         total_preds += list(preds)
 
-    write_path = os.path.join(args.output_dir, "submission.csv")
+    write_path = os.path.join(args.output_dir, "submission_attention.csv")
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
     with open(write_path, "w", encoding="utf8") as w:
@@ -181,7 +182,9 @@ def get_model(args):
 
 # 배치 전처리
 def process_batch(batch):
-    test, question, tag, correct, ass_aver, user_aver, big, mask = batch
+    (test, question, tag, correct, ass_aver, user_aver, big, 
+    past_correct, same_item_cnt, problem_id_mean ,
+    month_mean, mask) = batch
     #test, question, tag, correct, cls, mask = batch
 
     # change to float
@@ -202,8 +205,13 @@ def process_batch(batch):
     ass_aver = ((ass_aver + 1) * mask).int()
     user_aver = ((user_aver + 1) * mask).int()
     big = ((big + 1) * mask).int()
+    past_correct = ((past_correct + 1) * mask).int()
+    same_item_cnt = ((same_item_cnt + 1) * mask).int()
+    problem_id_mean = ((problem_id_mean + 1) * mask).int()
+    month_mean = ((month_mean + 1) * mask).int()
     #return (test, question, tag, correct, mask, cls, interaction)
-    return (test, question, tag, correct, mask, ass_aver, user_aver,big, interaction)
+    return (test, question, tag, correct, mask, ass_aver, user_aver,big, 
+            past_correct, same_item_cnt, problem_id_mean, month_mean,interaction)
 
 
 # loss계산하고 parameter update!
