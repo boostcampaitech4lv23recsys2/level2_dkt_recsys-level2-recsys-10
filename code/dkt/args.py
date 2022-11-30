@@ -27,12 +27,12 @@ def parse_args():
         "--model_dir", default="models/", type=str, help="model directory"
     )
     parser.add_argument(
-        "--model_name", default="model.pt", type=str, help="model file name"
+        "--model_name", default="model", type=str, help="model file name"
     )
 
-    parser.add_argument(
-        "--model_name_k_fold", default="model", type=str, help="model file name"
-    )
+    # parser.add_argument(
+    #     "--model_name_k_fold", default="model", type=str, help="model file name"
+    # )
 
     parser.add_argument(
         "--output_dir", default="output/", type=str, help="output directory"
