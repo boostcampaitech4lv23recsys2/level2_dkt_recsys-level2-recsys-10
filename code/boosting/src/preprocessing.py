@@ -125,6 +125,12 @@ def preprocessing_hyunho( total:pd.DataFrame ):
     total['item_time_avg'] = total.groupby('assessmentItemID')['solved_time_shift'].transform('mean')
     total['test_time_avg'] = total.groupby('testId')['solved_time_shift'].transform('mean')
     total['tag_time_avg'] = total.groupby('KnowledgeTag')['solved_time_shift'].transform('mean')
+
+    # ## 1-3. 유저/문제/시험지/태그별 평균 표준편차
+    # total['user_std'] = total.groupby('userID')['answerCode'].transform('std')
+    # total['item_std'] = total.groupby('assessmentItemID')['answerCode'].transform('std')
+    # total['test_std'] = total.groupby('testId')['answerCode'].transform('std')
+    # total['tag_std'] = total.groupby('KnowledgeTag')['answerCode'].transform('std')
     
     # 맞은 사람의 문제별 평균 풀이시간
     total = total.set_index('assessmentItemID')

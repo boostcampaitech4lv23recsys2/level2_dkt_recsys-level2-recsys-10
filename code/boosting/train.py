@@ -36,7 +36,7 @@ def main(args):
         cur_model = MyLGBMClassifier( data_collect, boosting_params[args.model], preprocessing, FEATS)
     
     elif "CatBoostClassifier" == args.model :
-        cur_model = MyCatClassifier( data_collect, boosting_params[args.model], preprocessing, FEATS,False)
+        cur_model = MyCatClassifier( data_collect, boosting_params[args.model], preprocessing_hyunho, FEATS,False)
         
 
     best_auc = cur_model.train()
