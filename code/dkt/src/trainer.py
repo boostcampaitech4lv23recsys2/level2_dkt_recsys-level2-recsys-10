@@ -65,16 +65,20 @@ def run(args, train_data, valid_data, model, kf_auc, kf_n=0):
             best_auc = auc
             # torch.nn.DataParallel로 감싸진 경우 원래의 model을 가져옵니다.
             model_to_save = model.module if hasattr(model, "module") else model
-            name = 'model.pt'
-            if(kf_n != 0):
-                name = f'model_{kf_n}.pt'
+
+            name = args.model_name + '.pt'
+            if args.split == 'k-fold':
+                name = args.model_name + f'_{kf_n}.pt'
+            
+            # if(kf_n != 0):
+            #     name = args.model_name_k_fold + f'_{kf_n}.pt'
             save_checkpoint(
                 {
                     "epoch": epoch + 1,
                     "state_dict": model_to_save.state_dict(),
                 },
                 args.model_dir,
-                args.model_name,
+                name,
             )
             early_stopping_counter = 0
         else:                             # early_stopping
@@ -174,11 +178,11 @@ def inference(args, test_data, model):
 
         # predictions
         preds = preds[:, -1]
-        # preds = torch.nn.Sigmoid()(preds)
+        preds = torch.nn.Sigmoid()(preds)
         preds = preds.cpu().detach().numpy()
         total_preds += list(preds)
 
-    write_path = os.path.join(args.output_dir, "submission.csv")
+    write_path = os.path.join(args.output_dir, f"submission_{args.model_name}.csv")
 
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
@@ -281,9 +285,9 @@ def save_checkpoint(state, model_dir, model_filename):
 
 def load_model(args, idx):
     if args.split == 'user':
-        model_path = os.path.join(args.model_dir, args.model_name)
+        model_path = os.path.join(args.model_dir, args.model_name + '.pt')
     elif args.split == 'k-fold':
-        model_path = os.path.join(args.model_dir, args.model_name_k_fold + f'_{idx}.pt')
+        model_path = os.path.join(args.model_dir, args.model_name + f'_{idx}.pt')
     print("Loading Model from:", model_path)
     load_state = torch.load(model_path)
     model = get_model(args)
