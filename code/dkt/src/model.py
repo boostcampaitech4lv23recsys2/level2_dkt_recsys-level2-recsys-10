@@ -88,14 +88,16 @@ class LSTMATTN(nn.Module):
         self.embedding_ass_aver = nn.Embedding(self.args.n_ass_aver + 1, self.hidden_dim // 3)
         self.embedding_user_aver = nn.Embedding(self.args.n_user_aver + 1, self.hidden_dim // 3)
         self.embedding_big = nn.Embedding(self.args.n_big + 1, self.hidden_dim // 3)
+        self.embedding_past_correct = nn.Embedding(self.args.n_past_correct + 1, self.hidden_dim // 3)
+        self.embedding_same_item_cnt = nn.Embedding(self.args.n_same_item_cnt + 1, self.hidden_dim // 3)
+        self.embedding_problem_id_mean = nn.Embedding(self.args.n_problem_id_mean + 1, self.hidden_dim // 3)
+        self.embedding_month_mean = nn.Embedding(self.args.n_month_mean + 1, self.hidden_dim // 3)
 
 
         # embedding combination projection
-        self.comb_proj = nn.Linear((self.hidden_dim // 3) * 7, self.hidden_dim)
+        self.comb_proj = nn.Linear((self.hidden_dim // 3) * 11, self.hidden_dim)
 
-        self.lstm = nn.LSTM(
-            self.hidden_dim, self.hidden_dim, self.n_layers, batch_first=True
-        )
+        self.lstm = nn.LSTM(self.hidden_dim, self.hidden_dim, self.n_layers, batch_first=True)
 
         self.config = BertConfig(
             3,  # not used
@@ -118,7 +120,9 @@ class LSTMATTN(nn.Module):
         #print(input)
         #test, question, tag, _, mask, interaction, ass_aver, user_aver= input  
         #print(input)
-        test, question, tag, _, mask, ass_aver, user_aver, big, interaction= input  
+        (test, question, tag, _, mask, ass_aver, user_aver, big, 
+        past_correct, same_item_cnt, problem_id_mean, 
+        month_mean, interaction)= input  
         batch_size = interaction.size(0)
 
         # Embedding
@@ -129,6 +133,11 @@ class LSTMATTN(nn.Module):
         embed_ass_aver = self.embedding_ass_aver(ass_aver)
         embed_user_aver = self.embedding_user_aver(user_aver)
         embed_big = self.embedding_big(big)
+        embed_past_correct = self.embedding_past_correct(past_correct)
+        embed_same_item_cnt = self.embedding_same_item_cnt(same_item_cnt)
+        embed_problem_id_mean = self.embedding_problem_id_mean(problem_id_mean)
+        embed_month_mean = self.embedding_month_mean(month_mean)
+
 
         # print(embed_interaction.shape)
         # print(embed_test.shape)
@@ -145,7 +154,12 @@ class LSTMATTN(nn.Module):
                 embed_tag,
                 embed_ass_aver,
                 embed_user_aver,
-                embed_big
+                embed_big,
+                embed_past_correct,
+                embed_same_item_cnt,
+                embed_problem_id_mean,
+                embed_month_mean
+
             ],
             2,
         )
