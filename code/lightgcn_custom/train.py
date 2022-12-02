@@ -22,7 +22,7 @@ def main():
     logger.info("Task Started")
 
     logger.info("[1/1] Data Preparing - Start")
-    train_data, valid_data,test_data, n_node = prepare_dataset(
+    train_data, valid_data,test_data, n_node, additional_infos, additional_datas = prepare_dataset(
         device, CFG.basepath, verbose=CFG.loader_verbose, logger=logger.getChild("data")
     )
     logger.info("[1/1] Data Preparing - Done")
@@ -33,6 +33,7 @@ def main():
         n_node, 
         embedding_dim=CFG.embedding_dim,
         num_layers=CFG.num_layers,
+        embedding_info = additional_infos,
         alpha=CFG.alpha,
         logger=logger.getChild("build"),
         **CFG.build_kwargs
@@ -48,6 +49,7 @@ def main():
     train(
         model,
         train_data,
+        additional_datas,
         valid_data,
         n_epoch=CFG.n_epoch,
         learning_rate=CFG.learning_rate,

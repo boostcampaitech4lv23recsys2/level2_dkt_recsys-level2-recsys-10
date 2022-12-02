@@ -11,6 +11,8 @@ def prepare_dataset(device, basepath, verbose=True, logger=None):
     # add split function 
     train,valid = train_test_split(train_data, test_size=0.2)
     id2index = indexing_data(data)
+    additional_infos = get_additional_info_dict(data)
+    additional_datas = get_additional_data_list(data)
     train_data_proc = process_data(train, id2index, device)
     valid_data_proc = process_data(valid, id2index, device)
     test_data_proc = process_data(test_data, id2index, device)
@@ -20,7 +22,7 @@ def prepare_dataset(device, basepath, verbose=True, logger=None):
         print_data_stat(test_data, "Test", logger=logger)
 
     # return train_data_proc, test_data_proc, len(id2index)
-    return train_data_proc,valid_data_proc, test_data_proc, len(id2index)
+    return train_data_proc,valid_data_proc, test_data_proc, len(id2index), additional_infos , additional_datas
 
 
 def load_data(basepath):
@@ -58,8 +60,25 @@ def indexing_data(data):
 
     return id_2_index
 
+def preprocessing_data(data):
+    pass
+
+def get_additional_data_list(data):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    return {
+        "add_data":{
+            "KnowledgeTag" : torch.IntTensor(data["KnowledgeTag"].tolist()).to(device)
+        }
+    }
+
+def get_additional_info_dict(data):
+    return [{"name":"KnowledgeTag", "value":data["KnowledgeTag"].nunique() }]
+
 
 def process_data(data, id_2_index, device):
+
+    ################################ 1. node and label information ################################
     edge, label = [], []
     # user : userID, item : assessmentItemID, value : answerCode
     for user, item, acode in zip(data.userID, data.assessmentItemID, data.answerCode):
@@ -70,9 +89,8 @@ def process_data(data, id_2_index, device):
         # label.append(solved_cnt)
 
     edge = torch.LongTensor(edge).T
-    
     label = torch.LongTensor(label)
-
+    
     return dict(edge=edge.to(device), label=label.to(device))
 
 
