@@ -84,33 +84,51 @@ def parse_args():
     
     # categorical featurs
     parser.add_argument('--cate_feats', type=list, nargs="+",
-                        default=["assessmentItemID", 
+                        default=['assessmentItemID',
                                 'testId',
-                                'Bigcat',
                                 'KnowledgeTag',
+                                'bigcat',
+                                # 'smallcat',
                                 'timeClass',
-                                # 'Bigcat_class',
-
-                                # 'day_diff',
-
+                                # 'hour',
+                                # 'month',
+                                # 'dayofweek',
+                                # 'item_num',
+                                # 'item_seq',
+                                # ‘Bigcat_class’,
+                                # ‘day_diff’,
                         ],
                         help="category features")
 
     # continous featurs
     parser.add_argument('--conti_feats', type=list, nargs="+",
-                        default=['prior_elapsed', #'current_elapsed',
-                                'user_avg', 'item_avg', 'Bigcat_avg', 'tag_avg',
-                                'user_std', 'item_std', 'Bigcat_std', 'tag_std',
-                                'user_retCumacc', # 'item_retCumacc',
-                                'user_cumacc', 'user_Bigcat_cumacc', 
-                                # 'tag_count', # 'assess_count',
-                                # 'day_diff',
-                        ], 
+                        default=['elapsed',
+                                #'solved_time_prior', #'solved_time',
+                                # 'user_avg', 'item_avg', 'test_avg', 'bigcat_avg', 'tag_avg',
+                                # 'user_time_avg', 'item_time_avg', 'test_time_avg', 'bigcat_time_avg', 'tag_time_avg',
+                                # 'user_std', 'item_std', 'test_std', 'bigcat_std', 'tag_std',
+                                # 'user_cum_cnt', 'item_cum_cnt', #'test_cum_cnt', 'bigcat_cum_cnt', 'tag_cum_cnt',
+                                #'user_cor_cum_cnt', 'item_cor_cum_cnt', #'test_cor_cum_cnt', 'bigcat_cor_cum_cnt', 'tag_cor_cum_cnt',
+                                'user_cum_acc', 'item_cum_acc', #'test_cum_acc', 'bigcat_cum_acc', 'tag_cum_acc',
+                                # 'test_cum_cnt_per_user', 'bigcat_cum_cnt_per_user', 'tag_cum_cnt_per_user',
+                                # 'test_cor_cum_per_user', 'bigcat_cor_cum_per_user', 'tag_cor_cum_per_user',
+                                # 'test_cum_acc_per_user', 'bigcat_cum_acc_per_user', 'tag_cum_acc_per_user',
+                                'user_cur_avg', 'user_cur_time_avg',
+                                'user_rec_avg_rolling5', #'user_rec_time_avg_rolling5', 
+                                # 'user_rec_avg_rolling7', 'user_rec_time_avg_rolling7', 
+                                # 'user_rec_avg_rolling10', 'user_rec_time_avg_rolling10',
+                                # 'item_rec_avg_rolling5', 'item_rec_time_avg_rolling5', 
+                                # 'item_rec_avg_rolling7', 'item_rec_time_avg_rolling7', 
+                                # 'item_rec_avg_rolling10', 'item_rec_time_avg_rolling10'
+                        ],
                         help = "numeric features")
 
     # k-fold
     parser.add_argument("--split", default="user", type=str, help="data split strategy")
     parser.add_argument("--n_splits", default=5, type=str, help="number of k-fold splits")
+
+    # hyperopt
+    parser.add_argument("--hyperopt", default=False, type=bool, help="hyperopt")
 
     args = parser.parse_args()
 

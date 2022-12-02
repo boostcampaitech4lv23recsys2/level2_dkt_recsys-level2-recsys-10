@@ -14,7 +14,7 @@ from .optimizer import get_optimizer
 from .scheduler import get_scheduler
 
 
-def run(args, train_data, valid_data, model, kf_auc, kf_n=0):
+def run(args, train_data, valid_data, model, report, kf_auc, kf_n=0):
     torch.cuda.empty_cache()
     gc.collect()
 
@@ -89,11 +89,18 @@ def run(args, train_data, valid_data, model, kf_auc, kf_n=0):
                 )
                 break
 
+        if acc > best_acc:
+            best_acc = acc
+
         # scheduler
         if args.scheduler == "plateau":
             scheduler.step(best_auc)
         else:
             scheduler.step()
+    
+    # save best records
+    report['best_auc'] = best_auc
+    report['best_acc'] = best_acc
     
     kf_auc.append(best_auc)
         
