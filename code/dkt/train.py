@@ -9,7 +9,7 @@ from src.utils import setSeeds
 
 
 def main(args):
-    #wandb.login()
+    wandb.login()
 
     setSeeds(args.seed)
     args.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -19,7 +19,7 @@ def main(args):
     train_data = preprocess.get_train_data()
     train_data, valid_data = preprocess.split_data(train_data)
 
-    #wandb.init(project="attention", config=vars(args))
+    wandb.init(project="attention", config=vars(args))
     model = trainer.get_model(args).to(args.device)
     trainer.run(args, train_data, valid_data, model)
 

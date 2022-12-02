@@ -15,13 +15,13 @@ from .dataloader import get_loaders, data_augmentation
 
 def run(args, train_data, valid_data, model):
     # print(args)
-    # torch.cuda.empty_cache()
-    # gc.collect()
-    #train_loader, valid_loader = get_loaders(args, train_data, valid_data)
-    #augmented_train_data = data_augmentation(train_data, args)
+    torch.cuda.empty_cache()
+    gc.collect()
+
+    augmented_train_data = data_augmentation(train_data, args)
+    train_data = augmented_train_data
 
     train_loader, valid_loader = get_loaders(args, train_data, valid_data)
-    #train_loader, valid_loader = get_loaders(args, augmented_train_data, valid_data)
 
     # only when using warmup scheduler
     args.total_steps = int(math.ceil(len(train_loader.dataset) / args.batch_size)) * (
@@ -47,16 +47,16 @@ def run(args, train_data, valid_data, model):
         auc, acc = validate(valid_loader, model, args)
 
         ### TODO: model save or early stopping
-        # wandb.log(
-        #     {
-        #         "epoch": epoch,
-        #         "train_loss_epoch": train_loss,
-        #         "train_auc_epoch": train_auc,
-        #         "train_acc_epoch": train_acc,
-        #         "valid_auc_epoch": auc,
-        #          "valid_acc_epoch": acc,
-        #     }
-        # )
+        wandb.log(
+            {
+                "epoch": epoch,
+                "train_loss_epoch": train_loss,
+                "train_auc_epoch": train_auc,
+                "train_acc_epoch": train_acc,
+                "valid_auc_epoch": auc,
+                 "valid_acc_epoch": acc,
+            }
+        )
         if auc > best_auc:
             best_auc = auc
             # torch.nn.DataParallel로 감싸진 경우 원래의 model을 가져옵니다.
@@ -91,10 +91,8 @@ def train(train_loader, model, optimizer, scheduler, args):
     losses = []
     for step, batch in enumerate(train_loader):
         input = list(map(lambda t: t.to(args.device), process_batch(batch)))
-        #input = process_batch(batch, args)
         preds = model(input)
         targets = input[3]  # correct
-        #targets = input[-1]
 
         loss = compute_loss(preds, targets)
         update_params(loss, model, optimizer, scheduler, args)
@@ -127,7 +125,7 @@ def validate(valid_loader, model, args):
     total_targets = []
     for step, batch in enumerate(valid_loader):
         input = list(map(lambda t: t.to(args.device), process_batch(batch)))
-        #input = process_batch(batch, args)
+        #input = process_batch(batch)
 
         preds = model(input)
         targets = input[3]  # correct
@@ -152,7 +150,7 @@ def validate(valid_loader, model, args):
 
 
 def inference(args, test_data, model):
-
+    model = load_model(args)
     model.eval()
     _, test_loader = get_loaders(args, None, test_data)
 
@@ -160,7 +158,7 @@ def inference(args, test_data, model):
 
     for step, batch in enumerate(test_loader):
         input = list(map(lambda t: t.to(args.device), process_batch(batch)))
-        #input = process_batch(batch, args)
+        #input = process_batch(batch)
         preds = model(input)
 
         # predictions
@@ -244,10 +242,10 @@ def compute_loss(preds, targets):
 def update_params(loss, model, optimizer, scheduler, args):
     loss.backward()
     torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip_grad)
-    if args.scheduler == "linear_warmup":
-        scheduler.step()
     optimizer.step()
     optimizer.zero_grad()
+    if args.scheduler == "linear_warmup":
+        scheduler.step()
 
 
 def save_checkpoint(state, model_dir, model_filename):
@@ -257,9 +255,24 @@ def save_checkpoint(state, model_dir, model_filename):
     torch.save(state, os.path.join(model_dir, model_filename))
 
 
-def load_model(args):
+# def load_model(args):
 
-    model_path = os.path.join(args.model_dir, args.model_name)
+#     model_path = os.path.join(args.model_dir, args.model_name)
+#     print("Loading Model from:", model_path)
+#     load_state = torch.load(model_path)
+#     model = get_model(args)
+
+#     # load model state
+#     model.load_state_dict(load_state["state_dict"], strict=True)
+
+#     print("Loading Model from:", model_path, "...Finished.")
+#     return model
+
+def load_model(args, idx):
+    if args.split == 'user':
+        model_path = os.path.join(args.model_dir, args.model_name)
+    elif args.split == 'k-fold':
+        model_path = os.path.join(args.model_dir, args.model_name_k_fold + f'_{idx}.pt')
     print("Loading Model from:", model_path)
     load_state = torch.load(model_path)
     model = get_model(args)

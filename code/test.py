@@ -1,84 +1,78 @@
-import torch
-import torch.nn as nn
+def run(args, train_data, valid_data, model, kf_auc, kf_n=0):
+    torch.cuda.empty_cache()
+    gc.collect()
 
-try:
-    from transformers.modeling_bert import BertConfig, BertEncoder, BertModel
-except:
-    from transformers.models.bert.modeling_bert import (BertConfig, BertEncoder, BertModel,)
-    
-    
-class LSTMATTN(nn.Module):
-    def __init__(self, args):
-        super(LSTMATTN, self).__init__()
-        self.args = args
+    # data augmentation
+    augmented_train_data = data_augmentation(train_data, args)
+    if len(augmented_train_data) != len(train_data):
+        print(f"Data Augmentation applied. Train data {len(train_data)} -> {len(augmented_train_data)}\n")
 
-        self.hidden_dim = self.args.hidden_dim
-        self.n_layers = self.args.n_layers
-        self.n_heads = self.args.n_heads
-        self.drop_out = self.args.drop_out
+    # train_loader, valid_loader = get_loaders(args, train_data, valid_data)
+    train_loader, valid_loader = get_loaders(args, augmented_train_data, valid_data)
 
-        # Embedding
-        # interaction은 현재 correct로 구성되어있다. correct(1, 2) + padding(0)
-        self.embedding_interaction = nn.Embedding(3, self.hidden_dim // 3)
-        self.embedding_test = nn.Embedding(self.args.n_test + 1, self.hidden_dim // 3)
-        self.embedding_question = nn.Embedding(self.args.n_questions + 1, self.hidden_dim // 3)
-        self.embedding_tag = nn.Embedding(self.args.n_tag + 1, self.hidden_dim // 3)
+    # only when using warmup scheduler
+    args.total_steps = int(math.ceil(len(train_loader.dataset) / args.batch_size)) * (
+        args.n_epochs
+    )
+    args.warmup_steps = args.total_steps // 10
 
-        # embedding combination projection
-        self.comb_proj = nn.Linear((self.hidden_dim // 3) * 4, self.hidden_dim)
+    optimizer = get_optimizer(model, args)
+    scheduler = get_scheduler(optimizer, args)
 
-        self.lstm = nn.LSTM(self.hidden_dim, self.hidden_dim, self.n_layers, batch_first=True)
+    best_auc = -1
+    best_acc = -1
+    early_stopping_counter = 0
+    for epoch in range(args.n_epochs):
 
-        self.config = BertConfig(
-            3,  # not used
-            hidden_size=self.hidden_dim,
-            num_hidden_layers=1,
-            num_attention_heads=self.n_heads,
-            intermediate_size=self.hidden_dim,
-            hidden_dropout_prob=self.drop_out,
-            attention_probs_dropout_prob=self.drop_out,
-        )
-        self.attn = BertEncoder(self.config)
+        print(f"Start Training: Epoch {epoch + 1}")
 
-        # Fully connected layer
-        self.fc = nn.Linear(self.hidden_dim, 1)
-
-        self.activation = nn.Sigmoid()
-
-    def forward(self, input):
-
-        test, question, tag, _, mask, interaction = input
-
-        batch_size = interaction.size(0)
-
-        # Embedding
-        embed_interaction = self.embedding_interaction(interaction)
-        embed_test = self.embedding_test(test)
-        embed_question = self.embedding_question(question)
-        embed_tag = self.embedding_tag(tag)
-
-        embed = torch.cat(
-            [
-                embed_interaction,
-                embed_test,
-                embed_question,
-                embed_tag,
-            ],
-            2,
+        ### TRAIN
+        train_auc, train_acc, train_loss = train(
+            train_loader, model, optimizer, scheduler, args
         )
 
-        X = self.comb_proj(embed)
+        ### VALID
+        auc, acc = validate(valid_loader, model, args)
 
-        out, _ = self.lstm(X)
-        out = out.contiguous().view(batch_size, -1, self.hidden_dim)
+        ### TODO: model save or early stopping
+        wandb.log(
+            {
+                "epoch": epoch,
+                "train_loss_epoch": train_loss,
+                "train_auc_epoch": train_auc,
+                "train_acc_epoch": train_acc,
+                "valid_auc_epoch": auc,
+                "valid_acc_epoch": acc,
+            }
+        )
+        if auc > best_auc:
+            best_auc = auc
+            # torch.nn.DataParallel로 감싸진 경우 원래의 model을 가져옵니다.
+            model_to_save = model.module if hasattr(model, "module") else model
+            name = 'model.pt'
+            if(kf_n != 0):
+                name = f'model_{kf_n}.pt'
+            save_checkpoint(
+                {
+                    "epoch": epoch + 1,
+                    "state_dict": model_to_save.state_dict(),
+                },
+                args.model_dir,
+                name,
+            )
+            early_stopping_counter = 0
+        else:                             # early_stopping
+            early_stopping_counter += 1
+            if early_stopping_counter >= args.patience:
+                print(
+                    f"EarlyStopping counter: {early_stopping_counter} out of {args.patience}"
+                )
+                break
 
-        extended_attention_mask = mask.unsqueeze(1).unsqueeze(2)
-        extended_attention_mask = extended_attention_mask.to(dtype=torch.float32)
-        extended_attention_mask = (1.0 - extended_attention_mask) * -10000.0
-        head_mask = [None] * self.n_layers
-
-        encoded_layers = self.attn(out, extended_attention_mask, head_mask=head_mask)
-        sequence_output = encoded_layers[-1]
-
-        out = self.fc(sequence_output).view(batch_size, -1)
-        return out
+        # scheduler
+        if args.scheduler == "plateau":
+            scheduler.step(best_auc)
+        else:
+            scheduler.step()
+    
+    kf_auc.append(best_auc)

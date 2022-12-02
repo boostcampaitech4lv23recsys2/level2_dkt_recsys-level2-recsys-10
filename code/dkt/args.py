@@ -36,17 +36,17 @@ def parse_args():
         "--test_file_name", default="test_data.csv", type=str, help="test file name"
     )
 
-    parser.add_argument("--max_seq_len", default=80, type=int, help="max sequence length")
+    parser.add_argument("--max_seq_len", default=50, type=int, help="max sequence length")
     parser.add_argument("--num_workers", default=1, type=int, help="number of workers")
 
     # 모델
     parser.add_argument("--hidden_dim", default=128, type=int, help="hidden dimension size")
     parser.add_argument("--n_layers", default=1, type=int, help="number of layers")
-    parser.add_argument("--n_heads", default=16, type=int, help="number of heads")
-    parser.add_argument("--drop_out", default=0.4, type=float, help="drop out rate")
+    parser.add_argument("--n_heads", default=4, type=int, help="number of heads")
+    parser.add_argument("--drop_out", default=0.5, type=float, help="drop out rate")
 
     # 훈련
-    parser.add_argument("--n_epochs", default=30, type=int, help="number of epochs")
+    parser.add_argument("--n_epochs", default=20, type=int, help="number of epochs")
     parser.add_argument("--batch_size", default=32, type=int, help="batch size")
     parser.add_argument("--lr", default=0.0001, type=float, help="learning rate")   #default=0.0001
     parser.add_argument("--clip_grad", default=50, type=int, help="clip grad")   #default=10
@@ -56,12 +56,12 @@ def parse_args():
     ### 중요 ###
     parser.add_argument("--model", default="lstmattn", type=str, help="model type")
     parser.add_argument("--optimizer", default="adam", type=str, help="optimizer type")
-    parser.add_argument("--scheduler", default="plateau", type=str, help="scheduler type")
+    parser.add_argument("--scheduler", default="linear_warmup", type=str, help="scheduler type")
 
     # Data Augmentation
     parser.add_argument("--window", default=True, type=bool, help="window") # False 면 augumentation X
     parser.add_argument("--shuffle", default=False, type=bool, help="shuffle")
-    parser.add_argument("--stride", default=80, type=int, help="stride")
+    parser.add_argument("--stride", default=50, type=int, help="stride")
     parser.add_argument("--shuffle_n", default=3, type=int, help="number of shuffle")
 
     # k-fold

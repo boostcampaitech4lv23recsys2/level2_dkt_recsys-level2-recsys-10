@@ -22,7 +22,20 @@ class Preprocess:
     def get_test_data(self):
         return self.test_data
 
-    def split_data(self, data, ratio=0.7, shuffle=True, seed=0):
+    # def split_data(self, data, ratio=0.7, shuffle=True, seed=0):
+    #     """
+    #     split data into two parts with a given ratio.
+    #     """
+    #     if shuffle:
+    #         random.seed(seed)  # fix to default seed 0
+    #         random.shuffle(data)
+
+    #     size = int(len(data) * ratio)
+    #     data_1 = data[:size]
+    #     data_2 = data[size:]
+
+    #     return data_1, data_2
+    def split_data(self, data, ratio=0.9, shuffle=True, seed=0):
         """
         split data into two parts with a given ratio.
         """
@@ -30,10 +43,15 @@ class Preprocess:
             random.seed(seed)  # fix to default seed 0
             random.shuffle(data)
 
-        size = int(len(data) * ratio)
-        data_1 = data[:size]
-        data_2 = data[size:]
+        if self.args.split == "user":
+            size = int(len(data) * ratio)
+            data_1 = data[:size]
+            data_2 = data[size:]
 
+        elif self.args.split == "k-fold":
+            data_1 = data[:]
+            data_2 = None
+            
         return data_1, data_2
 
     def __save_labels(self, encoder, name):
@@ -322,7 +340,7 @@ def slidding_window(data, args):
                 # window로 잘린 데이터를 모으는 리스트
                 window_data = []
                 for col in row:
-                    window_data.append(col[ window_i * stride : window_i * stride + window_size])
+                    window_data.append(col[window_i*stride:window_i*stride + window_size])
 
                 # Shuffle
                 # 마지막 데이터의 경우 shuffle을 하지 않는다
@@ -340,6 +358,7 @@ def slidding_window(data, args):
                     window_data.append(col[-window_size:])
                 augmented_datas.append(tuple(window_data))
 
+
     return augmented_datas
 
 def shuffle(data, data_size, args):
@@ -352,7 +371,7 @@ def shuffle(data, data_size, args):
             shuffle_data.append(col[random_index])
         shuffle_datas.append(tuple(shuffle_data))
     return shuffle_datas
-
+        
 
 def data_augmentation(data, args):
     if args.window == True:
