@@ -8,7 +8,7 @@ import gc
 from .criterion import get_criterion
 from .dataloader import get_loaders
 from .metric import get_metric
-from .model import LSTM, LSTMATTN, Bert
+from .model import LSTM, LSTMATTN, Bert, Saint
 from .optimizer import get_optimizer
 from .scheduler import get_scheduler
 from .dataloader import get_loaders, data_augmentation
@@ -124,9 +124,15 @@ def validate(valid_loader, model, args):
     total_preds = []
     total_targets = []
     for step, batch in enumerate(valid_loader):
+        # print('#####################################################')
+        # print('batch.shape : ')
+        # print(batch.shape)
         input = list(map(lambda t: t.to(args.device), process_batch(batch)))
+        #print(input.columns)
+        # print('input.shape : ')
+        # print(input.shape)
         #input = process_batch(batch)
-
+        
         preds = model(input)
         targets = input[3]  # correct
         #targets = input[-1]
@@ -186,6 +192,8 @@ def get_model(args):
         model = LSTMATTN(args)
     if args.model == "bert":
         model = Bert(args)
+    if args.model == "Saint":
+        model = Saint(args)  
 
     return model
 
@@ -194,6 +202,9 @@ def process_batch(batch):
     (test, question, tag, correct, ass_aver, user_aver, big, 
     past_correct, same_item_cnt, problem_id_mean ,
     month_mean, mask) = batch
+    # print('########################################################')
+    # print('print batch : ')
+    # print(batch)
     #test, question, tag, correct, cls, mask = batch
 
     # change to float
@@ -255,27 +266,27 @@ def save_checkpoint(state, model_dir, model_filename):
     torch.save(state, os.path.join(model_dir, model_filename))
 
 
-# def load_model(args):
+def load_model(args):
 
-#     model_path = os.path.join(args.model_dir, args.model_name)
-#     print("Loading Model from:", model_path)
-#     load_state = torch.load(model_path)
-#     model = get_model(args)
-
-#     # load model state
-#     model.load_state_dict(load_state["state_dict"], strict=True)
-
-#     print("Loading Model from:", model_path, "...Finished.")
-#     return model
-
-def load_model(args, idx):
-    if args.split == 'user':
-        model_path = os.path.join(args.model_dir, args.model_name)
-    elif args.split == 'k-fold':
-        model_path = os.path.join(args.model_dir, args.model_name_k_fold + f'_{idx}.pt')
+    model_path = os.path.join(args.model_dir, args.model_name)
     print("Loading Model from:", model_path)
     load_state = torch.load(model_path)
     model = get_model(args)
+
+    # load model state
+    model.load_state_dict(load_state["state_dict"], strict=True)
+
+    print("Loading Model from:", model_path, "...Finished.")
+    return model
+
+# def load_model(args, idx):
+#     if args.split == 'user':
+#         model_path = os.path.join(args.model_dir, args.model_name)
+#     elif args.split == 'k-fold':
+#         model_path = os.path.join(args.model_dir, args.model_name_k_fold + f'_{idx}.pt')
+#     print("Loading Model from:", model_path)
+#     load_state = torch.load(model_path)
+#     model = get_model(args)
 
     # load model state
     model.load_state_dict(load_state["state_dict"], strict=True)

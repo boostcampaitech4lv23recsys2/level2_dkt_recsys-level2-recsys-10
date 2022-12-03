@@ -1,6 +1,9 @@
 import torch
 import torch.nn as nn
 
+import math
+import numpy as np
+
 try:
     from transformers.modeling_bert import BertConfig, BertEncoder, BertModel
 except:
@@ -289,16 +292,23 @@ class Saint(nn.Module):
         self.embedding_test = nn.Embedding(self.args.n_test + 1, self.hidden_dim//3)
         self.embedding_question = nn.Embedding(self.args.n_questions + 1, self.hidden_dim//3)
         self.embedding_tag = nn.Embedding(self.args.n_tag + 1, self.hidden_dim//3)
+        self.embedding_ass_aver = nn.Embedding(self.args.n_ass_aver + 1, self.hidden_dim // 3)
+        self.embedding_user_aver = nn.Embedding(self.args.n_user_aver + 1, self.hidden_dim // 3)
+        self.embedding_big = nn.Embedding(self.args.n_big + 1, self.hidden_dim // 3)
+        self.embedding_past_correct = nn.Embedding(self.args.n_past_correct + 1, self.hidden_dim // 3)
+        self.embedding_same_item_cnt = nn.Embedding(self.args.n_same_item_cnt + 1, self.hidden_dim // 3)
+        self.embedding_problem_id_mean = nn.Embedding(self.args.n_problem_id_mean + 1, self.hidden_dim // 3)
+        self.embedding_month_mean = nn.Embedding(self.args.n_month_mean + 1, self.hidden_dim // 3)
         
         # encoder combination projection
-        self.enc_comb_proj = nn.Linear((self.hidden_dim//3)*3, self.hidden_dim)
+        self.enc_comb_proj = nn.Linear((self.hidden_dim//3)*10, self.hidden_dim)
 
         # DECODER embedding
         # interaction은 현재 correct으로 구성되어있다. correct(1, 2) + padding(0)
         self.embedding_interaction = nn.Embedding(3, self.hidden_dim//3)
         
         # decoder combination projection
-        self.dec_comb_proj = nn.Linear((self.hidden_dim//3)*4, self.hidden_dim)
+        self.dec_comb_proj = nn.Linear((self.hidden_dim//3)*11, self.hidden_dim)
 
         # Positional encoding
         self.pos_encoder = PositionalEncoding(self.hidden_dim, self.dropout, self.args.max_seq_len)
@@ -327,7 +337,10 @@ class Saint(nn.Module):
         return mask.masked_fill(mask==1, float('-inf'))
 
     def forward(self, input):
-        test, question, tag, _, mask, interaction, _ = input
+        #test, question, tag, _, mask, interaction, _ = input
+        (test, question, tag, _, mask, ass_aver, user_aver, big, 
+        past_correct, same_item_cnt, problem_id_mean, 
+        month_mean, interaction)= input  
 
         batch_size = interaction.size(0)
         seq_len = interaction.size(1)
@@ -337,10 +350,25 @@ class Saint(nn.Module):
         embed_test = self.embedding_test(test)
         embed_question = self.embedding_question(question)
         embed_tag = self.embedding_tag(tag)
+        embed_ass_aver = self.embedding_ass_aver(ass_aver)
+        embed_user_aver = self.embedding_user_aver(user_aver)
+        embed_big = self.embedding_big(big)
+        embed_past_correct = self.embedding_past_correct(past_correct)
+        embed_same_item_cnt = self.embedding_same_item_cnt(same_item_cnt)
+        embed_problem_id_mean = self.embedding_problem_id_mean(problem_id_mean)
+        embed_month_mean = self.embedding_month_mean(month_mean)
 
         embed_enc = torch.cat([embed_test,
                                embed_question,
-                               embed_tag,], 2)
+                               embed_tag,
+                               embed_ass_aver,
+                               embed_user_aver,
+                               embed_big,
+                               embed_past_correct,
+                               embed_same_item_cnt,
+                               embed_problem_id_mean,
+                               embed_month_mean
+                               ], 2)                             
 
         embed_enc = self.enc_comb_proj(embed_enc)
         
@@ -348,13 +376,27 @@ class Saint(nn.Module):
         embed_test = self.embedding_test(test)
         embed_question = self.embedding_question(question)
         embed_tag = self.embedding_tag(tag)
-
         embed_interaction = self.embedding_interaction(interaction)
+        embed_ass_aver = self.embedding_ass_aver(ass_aver)
+        embed_user_aver = self.embedding_user_aver(user_aver)
+        embed_big = self.embedding_big(big)
+        embed_past_correct = self.embedding_past_correct(past_correct)
+        embed_same_item_cnt = self.embedding_same_item_cnt(same_item_cnt)
+        embed_problem_id_mean = self.embedding_problem_id_mean(problem_id_mean)
+        embed_month_mean = self.embedding_month_mean(month_mean)
 
         embed_dec = torch.cat([embed_test,
                                embed_question,
                                embed_tag,
-                               embed_interaction], 2)
+                               embed_interaction,
+                               embed_ass_aver,
+                               embed_user_aver,
+                               embed_big,
+                               embed_past_correct,
+                               embed_same_item_cnt,
+                               embed_problem_id_mean,
+                               embed_month_mean
+                               ], 2)
 
         embed_dec = self.dec_comb_proj(embed_dec)
 

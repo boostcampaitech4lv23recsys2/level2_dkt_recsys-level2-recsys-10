@@ -35,7 +35,7 @@ class Preprocess:
     #     data_2 = data[size:]
 
     #     return data_1, data_2
-    def split_data(self, data, ratio=0.9, shuffle=True, seed=0):
+    def split_data(self, data, ratio=0.7, shuffle=True, seed=0):
         """
         split data into two parts with a given ratio.
         """
@@ -87,6 +87,7 @@ class Preprocess:
             df[col] = df[col].astype(str)
             test = le.transform(df[col])
             df[col] = test
+            
         return df
 
         def convert_time(s):
@@ -214,6 +215,11 @@ class Preprocess:
                 )
             )
         )
+
+        # print('########################################################')
+        # print('group : ')
+        # print(group)
+
 
         return group.values
 
