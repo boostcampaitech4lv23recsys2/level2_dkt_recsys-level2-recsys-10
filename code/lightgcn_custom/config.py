@@ -15,7 +15,7 @@ class CFG:
     pred_file = "submission_2.csv"
 
     # build
-    embedding_dim = 256  # int
+    embedding_dim = 128  # int
     num_layers = 2  # int
     alpha = None  # Optional[Union[float, Tensor]]
     build_kwargs = {}  # other arguments

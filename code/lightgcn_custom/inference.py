@@ -19,14 +19,14 @@ def main():
     logger.info("Task Started")
 
     logger.info("[1/4] Data Preparing - Start")
-    train_data, valid,test_data, n_node = prepare_dataset(
+    train_data, valid,test_data, n_user, n_item,n_tag,additional_data= prepare_dataset(
         device, CFG.basepath, verbose=CFG.loader_verbose, logger=logger.getChild("data")
     )
     logger.info("[1/4] Data Preparing - Done")
 
     logger.info("[2/4] Model Building - Start")
     model = build(
-        n_node,
+        n_user, n_item,n_tag,
         embedding_dim=CFG.embedding_dim,
         num_layers=CFG.num_layers,
         alpha=CFG.alpha,
@@ -38,7 +38,7 @@ def main():
     logger.info("[2/4] Model Building - Done")
 
     logger.info("[3/4] Inference - Start")
-    pred = inference(model, test_data, logger=logger.getChild("infer"))
+    pred = inference(model, test_data, additional_data,logger=logger.getChild("infer"))
     logger.info("[3/4] Inference - Done")
 
     logger.info("[4/4] Result Dump - Start")
