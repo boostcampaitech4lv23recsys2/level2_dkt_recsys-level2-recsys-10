@@ -1,0 +1,47 @@
+program: train.py
+method: bayes
+metric:
+  name: valid_auc_epoch
+  goal: minimize
+parameters:
+  lr:
+    min: 0.001
+    max: 0.004
+  drop_out:
+    min: 0.1
+    max: 0.6
+  max_seq_len:
+    min: 80
+    max: 150
+  patience:
+    min: 20
+    max: 40
+  stride:
+    min: 80
+    max: 150
+  clip_grad:
+    value: 100
+  hidden_dim:
+    values: ['128','256','512']
+  # scheduler:
+  #   values: ['linear_warmup']
+  # cate_feats:
+  #   values: [
+  #           "assessmentItemID", 
+  #           'testId',
+  #           'Bigcat',
+  #           'KnowledgeTag',
+  #           'timeClass',
+  #           'Bigcat_class',
+  #           ]
+  # conti_feats:
+  #   values: [
+  #           'prior_elapsed',
+  #           'user_avg', 'item_avg', 'tag_avg', 'Bigcat_avg',
+  #           'user_std', 'item_std', 'tag_std', 'Bigcat_std',
+  #           'user_retCumacc', 
+  #           'user_retCount_correct_answer',
+  #           'user_cumacc',
+  #           'elo'
+  #           ]
+
