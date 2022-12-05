@@ -2,8 +2,8 @@
 import pandas as pd
 import torch
 from config import CFG, logging_conf
-from lightgcn.datasets import prepare_dataset
-from lightgcn.models import build, train
+from lightgcn.datasets import prepare_dataset, prepare_dataset_kfold
+from lightgcn.models import build, train, train_kfold
 from lightgcn.utils import class2dict, get_logger,setSeeds
 if CFG.user_wandb:
     import wandb
@@ -22,9 +22,17 @@ def main():
     logger.info("Task Started")
 
     logger.info("[1/1] Data Preparing - Start")
-    train_data, valid_data,test_data, num_info, additional_data = prepare_dataset(
-        device, CFG.basepath, verbose=CFG.loader_verbose, logger=logger.getChild("data")
-    )
+
+    if 0 : 
+        train_data, valid_data,test_data, num_info, additional_data = prepare_dataset(
+            device, CFG.basepath, verbose=CFG.loader_verbose, logger=logger.getChild("data")
+        )
+
+    else:
+        train_data, valid_data,test_data, num_info, additional_data = prepare_dataset_kfold(
+            device, CFG.basepath, verbose=CFG.loader_verbose, logger=logger.getChild("data")
+        )
+    
     logger.info("[1/1] Data Preparing - Done")
 
     logger.info("[2/2] Model Building - Start")
@@ -45,7 +53,8 @@ def main():
     logger.info("[2/2] Model Building - Done")
 
     logger.info("[3/3] Model Training - Start")
-    train(
+    # train(
+    train_kfold(
         model,
         train_data,
         additional_data,

@@ -15,11 +15,13 @@ class CFG:
     pred_file = "submission_2.csv"
 
     # build
+    kfold = 10
     embedding_dim = 256  # int
     num_layers = 2  # int
     alpha = None  # Optional[Union[float, Tensor]]
     build_kwargs = {}  # other arguments
-    weight = "./weight/best_model.pt"
+    weight = "./weight/best_model"
+    # weight = "./weight/best_model.pt"
 
     # train
     n_epoch = 3000

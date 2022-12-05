@@ -302,60 +302,64 @@ def train_kfold(
         weight = train_data["weight"]
         label = label.to("cpu").detach().numpy()
         weight = weight.to("cpu").detach().numpy()
-        valid_data = dict(edge=edge[:, eids], label=label[eids], weight=weight[eids])
+        valid_data = [dict(edge=edge[:, eids], label=label[eids], weight=weight[eids])]
 
     logger.info(f"Training Started : n_epoch={n_epoch}")
     best_auc, best_epoch = 0, -1
     stop_check = 0 
     
-    for e in range(n_epoch):
+    for k_idx ,( cur_train_data, cur_valid_data) in enumerate(zip(train_data,valid_data)) :
         # forward
-        pred = model(train_data["edge"],additional_data,edge_weight = train_data["weight"])
-        loss = model.link_pred_loss(pred, train_data["label"])
+        best_auc, best_epoch = 0, -1
+        stop_check = 0 
+        
+        for e in range(n_epoch):
+            pred = model(cur_train_data["edge"],additional_data,edge_weight = cur_train_data["weight"])
+            loss = model.link_pred_loss(pred, cur_train_data["label"])
 
-        # backward
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+            # backward
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-        with torch.no_grad():
-            # additional_data 는 user 와 item 을 key 로 가지고, 각 key 의 값도 dictionary 
-            # { user: {} , item : { knowledgeTag : tensor, ...} }
-            prob = model.predict_link(valid_data["edge"],additional_data,edge_weight = valid_data["weight"],prob=True)
-            prob = prob.detach().cpu().numpy()
-            acc = accuracy_score(valid_data["label"].cpu().numpy(), prob > 0.5)
-            auc = roc_auc_score(valid_data["label"].cpu().numpy(), prob)
-            logger.info(
-                f" * In epoch {(e+1):04}, loss={loss:.03f}, acc={acc:.03f}, AUC={auc:.03f}"
-            )
-            if use_wandb:
-                import wandb
-
-                wandb.log(dict(loss=loss, acc=acc, auc=auc))
-
-        if weight:
-            if auc > best_auc:
+            with torch.no_grad():
+                # additional_data 는 user 와 item 을 key 로 가지고, 각 key 의 값도 dictionary 
+                # { user: {} , item : { knowledgeTag : tensor, ...} }
+                prob = model.predict_link(cur_valid_data["edge"],additional_data,edge_weight = cur_valid_data["weight"],prob=True)
+                prob = prob.detach().cpu().numpy()
+                acc = accuracy_score(cur_valid_data["label"].cpu().numpy(), prob > 0.5)
+                auc = roc_auc_score(cur_valid_data["label"].cpu().numpy(), prob)
                 logger.info(
-                    f" * In epoch {(e+1):04}, loss={loss:.03f}, acc={acc:.03f}, AUC={auc:.03f}, Best AUC"
+                    f" * In epoch {(e+1):04}, loss={loss:.03f}, acc={acc:.03f}, AUC={auc:.03f}"
                 )
-                best_auc, best_epoch = auc, e
-                torch.save(
-                    {"model": model.state_dict(), "epoch": e + 1},
-                    os.path.join(weight, f"best_model.pt"),
-                )
-                stop_check = 0 
-            elif auc < best_auc : 
-                stop_check += 1 
-            
-            if ( stop_check >= early_stop ):
-                break
+                if use_wandb:
+                    import wandb
 
-            
-    torch.save(
-        {"model": model.state_dict(), "epoch": e + 1},
-        os.path.join(weight, f"last_model.pt"),
-    )
-    logger.info(f"Best Weight Confirmed : {best_epoch+1}'th epoch")
+                    wandb.log(dict(loss=loss, acc=acc, auc=auc))
+
+            if weight:
+                if auc > best_auc:
+                    logger.info(
+                        f" * In epoch {(e+1):04}, loss={loss:.03f}, acc={acc:.03f}, AUC={auc:.03f}, Best AUC"
+                    )
+                    best_auc, best_epoch = auc, e
+                    torch.save(
+                        {"model": model.state_dict(), "epoch": e + 1},
+                        os.path.join(weight, f"best_model_{k_idx}.pt"),
+                    )
+                    stop_check = 0 
+                elif auc < best_auc : 
+                    stop_check += 1 
+                
+                if ( stop_check >= early_stop ):
+                    break
+
+                
+        torch.save(
+            {"model": model.state_dict(), "epoch": e + 1},
+            os.path.join(weight, f"last_model.pt"),
+        )
+        logger.info(f"Best Weight Confirmed : {best_epoch+1}'th epoch")
 
 def inference(model, data,additional_data, logger=None):
     model.eval()

@@ -1,6 +1,7 @@
 import os
 
 import pandas as pd
+import numpy as np
 import torch
 from config import CFG, logging_conf
 from lightgcn.datasets import prepare_dataset
@@ -25,25 +26,39 @@ def main():
     logger.info("[1/4] Data Preparing - Done")
 
     logger.info("[2/4] Model Building - Start")
-    model = build(
-        num_info,
-        embedding_dim=CFG.embedding_dim,
-        num_layers=CFG.num_layers,
-        alpha=CFG.alpha,
-        weight=CFG.weight,
-        logger=logger.getChild("build"),
-        **CFG.build_kwargs
-    )
-    model.to(device)
-    logger.info("[2/4] Model Building - Done")
 
-    logger.info("[3/4] Inference - Start")
-    pred = inference(model, test_data, additional_data,logger=logger.getChild("infer"))
-    logger.info("[3/4] Inference - Done")
+    model_list = [ build(
+            num_info,
+            embedding_dim=CFG.embedding_dim,
+            num_layers=CFG.num_layers,
+            alpha=CFG.alpha,
+            weight=f"{CFG.weight}_{k_idx}.pt",
+            logger=logger.getChild("build"),
+            **CFG.build_kwargs
+        ) for k_idx in range(CFG.kfold) ]
+    # model = build(
+    #     num_info,
+    #     embedding_dim=CFG.embedding_dim,
+    #     num_layers=CFG.num_layers,
+    #     alpha=CFG.alpha,
+    #     weight=CFG.weight,
+    #     logger=logger.getChild("build"),
+    #     **CFG.build_kwargs
+    # )
+    pred_list = [] 
+    for model in model_list : 
+        model.to(device)
+        logger.info("[2/4] Model Building - Done")
 
-    logger.info("[4/4] Result Dump - Start")
-    pred = pred.detach().cpu().numpy()
-    pd.DataFrame({"prediction": pred}).to_csv(
+        logger.info("[3/4] Inference - Start")
+        pred = inference(model, test_data, additional_data,logger=logger.getChild("infer"))
+        logger.info("[3/4] Inference - Done")
+
+        logger.info("[4/4] Result Dump - Start")
+        pred = pred.detach().cpu().numpy()
+        pred_list.append(pred)
+
+    pd.DataFrame({"prediction":  np.mean(pred_list, axis = 0)}).to_csv(
         os.path.join(CFG.output_dir, CFG.pred_file), index_label="id"
     )
     logger.info("[4/4] Result Dump - Done")

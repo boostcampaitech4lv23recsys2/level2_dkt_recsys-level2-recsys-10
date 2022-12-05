@@ -4,6 +4,7 @@ import pandas as pd
 import torch
 import numpy as np
 from sklearn.model_selection import train_test_split
+from sklearn.model_selection import StratifiedKFold
 import random
 
 # train과 test 데이터셋은 사용자 별로 묶어서 분리를 해주어야함
@@ -22,13 +23,20 @@ def custom_train_test_split(df, ratio=0.7, split=True):
             break
         user_ids.append(user_id)
 
-
     train = df[df['userID'].isin(user_ids)]
     test = df[df['userID'].isin(user_ids) == False]
 
     #test데이터셋은 각 유저의 마지막 interaction만 추출
     test = test[test['userID'] != test['userID'].shift(-1)]
     return train, test
+
+def separate_data_v2(data):
+    valid_idx = np.array((data.answerCode < 0).tolist()[1:]+[False])
+    train_data = data[(data.answerCode >= 0) * (1-valid_idx).astype(bool)]
+    valid_data = data[valid_idx]
+    test_data = data[data.answerCode < 0]
+
+    return train_data, valid_data, test_data
 
 def prepare_dataset(device, basepath, verbose=True, logger=None):
     data = load_data(basepath)
@@ -49,6 +57,34 @@ def prepare_dataset(device, basepath, verbose=True, logger=None):
 
     # return train_data_proc, test_data_proc, len(id2index)
     return train_data_proc,valid_data_proc, test_data_proc, num_info,  additional_data
+
+def prepare_dataset_kfold(device, basepath, verbose=True, logger=None):
+    data = load_data(basepath)
+    preprocessing_data(data)
+    train_data, test_data = separate_data(data)
+    # train, valid, test_data = separate_data_v2(data)
+    # add split function 
+    skf = StratifiedKFold(n_splits=10)
+    # skf.get_n_splits(train_data, train_data["answerCode"])
+    
+    id2index, num_info = indexing_data(data)
+    additional_data = get_additional_data_list(data)
+
+    train_data_list, valid_data_list = [], []
+
+    for train_index, valid_index in skf.split(train_data,  train_data["answerCode"]):
+        train_data_list.append(process_data(train_data.iloc[train_index], id2index, device))
+        valid_data_list.append(process_data(train_data.iloc[valid_index], id2index, device))
+
+    test_data_proc = process_data(test_data, id2index, device)
+
+    if verbose:
+        print_data_stat(train_data, "Train", logger=logger)
+        print_data_stat(test_data, "Test", logger=logger)
+
+    # return train_data_proc, test_data_proc, len(id2index)
+    return train_data_list, valid_data_list, test_data_proc, num_info,  additional_data
+
 
 
 def load_data(basepath):
@@ -73,8 +109,6 @@ def separate_data(data):
 
 
 def indexing_data( data : pd.DataFrame ):
-    
- 
     """ 각 userID 와 assessment id 를 고유한 id 로 mapping 한다. 
     
     return
@@ -88,7 +122,7 @@ def indexing_data( data : pd.DataFrame ):
     userid, itemid = (
         sorted(list(set(data.userID))),
         sorted(list(set(data.assessmentItemID))),
-    )
+    )   
     n_user, n_item = len(userid), len(itemid)
 
     userid_2_index = {v: i for i, v in enumerate(userid)}
