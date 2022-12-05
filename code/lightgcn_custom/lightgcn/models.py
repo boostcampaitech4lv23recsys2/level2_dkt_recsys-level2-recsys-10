@@ -13,7 +13,7 @@ from torch_geometric.nn.conv import LGConv
 from torch_sparse import SparseTensor
 
 
-class MyLightGCN(LightGCN):
+class MyLightGCN(torch.nn.Module):
     """ Initializes MyLightGCN Model
     LightGCN 기본 클래스의 predict_link 등을 그대로 사용한다. 
     https://arxiv.org/abs/2002.02126
@@ -31,9 +31,7 @@ class MyLightGCN(LightGCN):
 
     def __init__(
             self,
-            num_users: int,
-            num_items: int,
-            num_tags:int,
+            num_info:dict,
             embedding_dim: int,
             num_layers: int,
             alpha: Optional[Union[float, Tensor]] = None,
@@ -54,10 +52,8 @@ class MyLightGCN(LightGCN):
                 - user additional information 
                 - item additional information 
             """
-            super().__init__(num_users+num_items, embedding_dim,num_layers)
+            super().__init__(num_info["n_user"], embedding_dim,num_layers)
 
-            self.num_users = num_users
-            self.num_items = num_items
             self.embedding_dim = embedding_dim
             self.num_layers = num_layers
 
@@ -70,43 +66,69 @@ class MyLightGCN(LightGCN):
                 alpha = torch.tensor([alpha] * (num_layers + 1))
             self.register_buffer('alpha', alpha)
 
-            self.user_embedding = Embedding(num_users, embedding_dim)
-            self.item_embedding = Embedding(num_items, embedding_dim)
-            self.tag_embedding = Embedding(num_tags, embedding_dim)
+            self.user_embedding = Embedding(num_info["n_user"], embedding_dim)
+            self.item_embedding = Embedding(num_info["n_item"], embedding_dim)
+
+            
+            self.tag_embedding  = Embedding(num_info["n_tags"], embedding_dim)
+            self.testId_embedding  = Embedding(num_info["n_testids"], embedding_dim)
+            self.bigcat_embedding  = Embedding(num_info["n_bigcat"], embedding_dim)
             self.convs = ModuleList([LGConv(**kwargs) for _ in range(num_layers)])
 
             torch.nn.init.xavier_uniform_(self.user_embedding.weight)
             torch.nn.init.xavier_uniform_(self.item_embedding.weight)
             torch.nn.init.xavier_uniform_(self.tag_embedding.weight)
+            torch.nn.init.xavier_uniform_(self.testId_embedding.weight)
+            torch.nn.init.xavier_uniform_(self.bigcat_embedding.weight)
         
             # embedding layer 및 convolutional layer 의 weight 초기화 
             self.reset_parameters()
 
-    def get_embedding(self, edge_index: Adj, additional_info:dict=None) -> Tensor:
+    def get_embedding(self, edge_index: Adj, additional_info:dict=None, edge_weight: OptTensor = None) -> Tensor:
 
-        item_embedding_weight =   ( self.item_embedding.weight+ self.tag_embedding(additional_info["item"]["KnowledgeTag"] ))/2
-        
+        item_embedding_weight = self.item_embedding.weight 
+        tag_embedding_weight  = self.tag_embedding(additional_info["item"]["KnowledgeTag"] )
+        testId_embedding_weight  = self.testId_embedding(additional_info["item"]["testId"] )
+        bigcat_embedding_weight  = self.bigcat_embedding(additional_info["item"]["big_category"] )
+
+        total_embedding_weight = item_embedding_weight
+
+        embedding_list = [
+                          tag_embedding_weight,
+                          testId_embedding_weight,
+                          bigcat_embedding_weight]
+
+        for emb in embedding_list : 
+            total_embedding_weight = total_embedding_weight + emb
+
+        total_embedding_weight = total_embedding_weight / (len(embedding_list) + 1 )
+
+        # total_embedding_weight = (  item_embedding_weight + tag_embedding_weight + testId_embedding_weigsht + bigcat_embedding_weight ) / 4
+
         # if additional_info["item"] is not None :
         #     for k in additional_info["item"] :
         #         self.item_embedding( additional_info["item"][k] )
 
         x = torch.cat([
             self.user_embedding.weight, 
-            item_embedding_weight
+            total_embedding_weight
             ],dim= 0)
         
         # x = self.embedding.weight
         out = x * self.alpha[0]
         
         for i in range(self.num_layers):
-            x = self.convs[i](x, edge_index)
+            # edge_weight =  torch.ones(edge_index.size(1))
+            # print(edge_weight)
+            # print(edge_weight.shape)
+            x = self.convs[i](x, edge_index, edge_weight = edge_weight)
             out = out + x * self.alpha[i + 1]
 
         return out
 
 
     def forward(self, edge_index: Adj, additional_info:dict=None,
-            edge_label_index: OptTensor = None) -> Tensor:
+            edge_label_index: OptTensor = None, edge_weight: OptTensor = None) -> Tensor:
         r"""Computes rankings for pairs of nodes.
 
         Args:
@@ -124,13 +146,13 @@ class MyLightGCN(LightGCN):
             else:
                 edge_label_index = edge_index
 
-        out = self.get_embedding(edge_index, additional_info)
+        out = self.get_embedding(edge_index, additional_info,edge_weight)
 
         out_src = out[edge_label_index[0]]
         out_dst = out[edge_label_index[1]]
         return (out_src * out_dst).sum(dim=-1)
 
-    def predict_link(self, edge_index: Adj, additional_info:dict=None,edge_label_index: OptTensor = None,
+    def predict_link(self, edge_index: Adj, additional_info:dict=None,edge_label_index: OptTensor = None, edge_weight: OptTensor = None,
                      prob: bool = False) -> Tensor:
         r"""Predict links between nodes specified in :obj:`edge_label_index`.
 
@@ -138,12 +160,26 @@ class MyLightGCN(LightGCN):
             prob (bool): Whether probabilities should be returned. (default:
                 :obj:`False`)
         """
-        pred = self(edge_index, additional_info,edge_label_index).sigmoid()
+        pred = self(edge_index, additional_info,edge_label_index,edge_weight = edge_weight).sigmoid()
         return pred if prob else pred.round()
 
+    def link_pred_loss(self, pred: Tensor, edge_label: Tensor,
+                    **kwargs) -> Tensor:
+        r"""Computes the model loss for a link prediction objective via the
+        :class:`torch.nn.BCEWithLogitsLoss`.
 
-def build( n_user:int, n_item: int,n_tag:int, weight=None, logger=None, **kwargs):
-    model = MyLightGCN( num_users = n_user, num_items = n_item,  num_tags = n_tag, **kwargs)
+        Args:
+            pred (Tensor): The predictions.
+            edge_label (Tensor): The ground-truth edge labels.
+            **kwargs (optional): Additional arguments of the underlying
+                :class:`torch.nn.BCEWithLogitsLoss` loss function.
+        """
+        loss_fn = torch.nn.BCEWithLogitsLoss(**kwargs)
+        return loss_fn(pred, edge_label.to(pred.dtype))
+
+
+def build( num_info:dict, weight=None, logger=None, **kwargs):
+    model = MyLightGCN( num_info=num_info, **kwargs)
     if weight:
         if not os.path.isfile(weight):
             logger.fatal("Model Weight File Not Exist")
@@ -162,6 +198,7 @@ def train(
     additional_data = None,
     valid_data=None,
     n_epoch=100,
+    early_stop = 10,
     learning_rate=0.01,
     use_wandb=False,
     weight=None,
@@ -178,14 +215,18 @@ def train(
         eids = np.arange(len(train_data["label"]))
         eids = np.random.permutation(eids)[:1000]
         edge, label = train_data["edge"], train_data["label"]
+        weight = train_data["weight"]
         label = label.to("cpu").detach().numpy()
-        valid_data = dict(edge=edge[:, eids], label=label[eids])
+        weight = weight.to("cpu").detach().numpy()
+        valid_data = dict(edge=edge[:, eids], label=label[eids], weight=weight[eids])
 
     logger.info(f"Training Started : n_epoch={n_epoch}")
     best_auc, best_epoch = 0, -1
+    stop_check = 0 
+    
     for e in range(n_epoch):
         # forward
-        pred = model(train_data["edge"],additional_data)
+        pred = model(train_data["edge"],additional_data,edge_weight = train_data["weight"])
         loss = model.link_pred_loss(pred, train_data["label"])
 
         # backward
@@ -196,7 +237,7 @@ def train(
         with torch.no_grad():
             # additional_data 는 user 와 item 을 key 로 가지고, 각 key 의 값도 dictionary 
             # { user: {} , item : { knowledgeTag : tensor, ...} }
-            prob = model.predict_link(valid_data["edge"],additional_data, prob=True)
+            prob = model.predict_link(valid_data["edge"],additional_data,edge_weight = valid_data["weight"],prob=True)
             prob = prob.detach().cpu().numpy()
             acc = accuracy_score(valid_data["label"].cpu().numpy(), prob > 0.5)
             auc = roc_auc_score(valid_data["label"].cpu().numpy(), prob)
@@ -218,6 +259,14 @@ def train(
                     {"model": model.state_dict(), "epoch": e + 1},
                     os.path.join(weight, f"best_model.pt"),
                 )
+                stop_check = 0 
+            elif auc < best_auc : 
+                stop_check += 1 
+            
+            if ( stop_check >= early_stop ):
+                break
+
+            
     torch.save(
         {"model": model.state_dict(), "epoch": e + 1},
         os.path.join(weight, f"last_model.pt"),
@@ -228,5 +277,5 @@ def train(
 def inference(model, data,additional_data, logger=None):
     model.eval()
     with torch.no_grad():
-        pred = model.predict_link(data["edge"],additional_data, prob=True)
+        pred = model.predict_link(data["edge"],additional_data,edge_weight=data["weight"], prob=True)
         return pred

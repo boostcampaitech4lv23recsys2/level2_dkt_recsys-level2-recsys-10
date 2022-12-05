@@ -22,7 +22,7 @@ def main():
     logger.info("Task Started")
 
     logger.info("[1/1] Data Preparing - Start")
-    train_data, valid_data,test_data, n_user, n_item,n_tag, additional_data = prepare_dataset(
+    train_data, valid_data,test_data, num_info, additional_data = prepare_dataset(
         device, CFG.basepath, verbose=CFG.loader_verbose, logger=logger.getChild("data")
     )
     logger.info("[1/1] Data Preparing - Done")
@@ -30,9 +30,7 @@ def main():
     logger.info("[2/2] Model Building - Start")
 
     model = build(
-        n_user,
-        n_item, 
-        n_tag,
+        num_info,
         embedding_dim=CFG.embedding_dim,
         num_layers=CFG.num_layers,
         alpha=CFG.alpha,
@@ -53,6 +51,7 @@ def main():
         additional_data,
         valid_data,
         n_epoch=CFG.n_epoch,
+        early_stop = CFG.early_stop,
         learning_rate=CFG.learning_rate,
         use_wandb=CFG.user_wandb,
         weight=CFG.weight_basepath,
