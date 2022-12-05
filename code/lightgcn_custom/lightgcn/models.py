@@ -52,8 +52,8 @@ class MyLightGCN(torch.nn.Module):
                 - user additional information 
                 - item additional information 
             """
-            super().__init__(num_info["n_user"], embedding_dim,num_layers)
-
+            # super().__init__(num_info["n_user"], embedding_dim,num_layers)
+            super().__init__()
             self.embedding_dim = embedding_dim
             self.num_layers = num_layers
 
@@ -68,21 +68,23 @@ class MyLightGCN(torch.nn.Module):
 
             self.user_embedding = Embedding(num_info["n_user"], embedding_dim)
             self.item_embedding = Embedding(num_info["n_item"], embedding_dim)
-
-            
             self.tag_embedding  = Embedding(num_info["n_tags"], embedding_dim)
             self.testId_embedding  = Embedding(num_info["n_testids"], embedding_dim)
             self.bigcat_embedding  = Embedding(num_info["n_bigcat"], embedding_dim)
             self.convs = ModuleList([LGConv(**kwargs) for _ in range(num_layers)])
-
-            torch.nn.init.xavier_uniform_(self.user_embedding.weight)
-            torch.nn.init.xavier_uniform_(self.item_embedding.weight)
-            torch.nn.init.xavier_uniform_(self.tag_embedding.weight)
-            torch.nn.init.xavier_uniform_(self.testId_embedding.weight)
-            torch.nn.init.xavier_uniform_(self.bigcat_embedding.weight)
         
             # embedding layer 및 convolutional layer 의 weight 초기화 
             self.reset_parameters()
+
+    def reset_parameters(self):
+        torch.nn.init.xavier_uniform_(self.user_embedding.weight)
+        torch.nn.init.xavier_uniform_(self.item_embedding.weight)
+        torch.nn.init.xavier_uniform_(self.tag_embedding.weight)
+        torch.nn.init.xavier_uniform_(self.testId_embedding.weight)
+        torch.nn.init.xavier_uniform_(self.bigcat_embedding.weight)
+
+        for conv in self.convs:
+            conv.reset_parameters()
 
     def get_embedding(self, edge_index: Adj, additional_info:dict=None, edge_weight: OptTensor = None) -> Tensor:
 
@@ -273,6 +275,87 @@ def train(
     )
     logger.info(f"Best Weight Confirmed : {best_epoch+1}'th epoch")
 
+
+def train_kfold(
+    model,
+    train_data,
+    additional_data = None,
+    valid_data=None,
+    n_epoch=100,
+    early_stop = 10,
+    learning_rate=0.01,
+    use_wandb=False,
+    weight=None,
+    logger=None,
+):
+    model.train()
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+    if not os.path.exists(weight):
+        os.makedirs(weight)
+
+    if valid_data is None:
+        eids = np.arange(len(train_data["label"]))
+        eids = np.random.permutation(eids)[:1000]
+        edge, label = train_data["edge"], train_data["label"]
+        weight = train_data["weight"]
+        label = label.to("cpu").detach().numpy()
+        weight = weight.to("cpu").detach().numpy()
+        valid_data = dict(edge=edge[:, eids], label=label[eids], weight=weight[eids])
+
+    logger.info(f"Training Started : n_epoch={n_epoch}")
+    best_auc, best_epoch = 0, -1
+    stop_check = 0 
+    
+    for e in range(n_epoch):
+        # forward
+        pred = model(train_data["edge"],additional_data,edge_weight = train_data["weight"])
+        loss = model.link_pred_loss(pred, train_data["label"])
+
+        # backward
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        with torch.no_grad():
+            # additional_data 는 user 와 item 을 key 로 가지고, 각 key 의 값도 dictionary 
+            # { user: {} , item : { knowledgeTag : tensor, ...} }
+            prob = model.predict_link(valid_data["edge"],additional_data,edge_weight = valid_data["weight"],prob=True)
+            prob = prob.detach().cpu().numpy()
+            acc = accuracy_score(valid_data["label"].cpu().numpy(), prob > 0.5)
+            auc = roc_auc_score(valid_data["label"].cpu().numpy(), prob)
+            logger.info(
+                f" * In epoch {(e+1):04}, loss={loss:.03f}, acc={acc:.03f}, AUC={auc:.03f}"
+            )
+            if use_wandb:
+                import wandb
+
+                wandb.log(dict(loss=loss, acc=acc, auc=auc))
+
+        if weight:
+            if auc > best_auc:
+                logger.info(
+                    f" * In epoch {(e+1):04}, loss={loss:.03f}, acc={acc:.03f}, AUC={auc:.03f}, Best AUC"
+                )
+                best_auc, best_epoch = auc, e
+                torch.save(
+                    {"model": model.state_dict(), "epoch": e + 1},
+                    os.path.join(weight, f"best_model.pt"),
+                )
+                stop_check = 0 
+            elif auc < best_auc : 
+                stop_check += 1 
+            
+            if ( stop_check >= early_stop ):
+                break
+
+            
+    torch.save(
+        {"model": model.state_dict(), "epoch": e + 1},
+        os.path.join(weight, f"last_model.pt"),
+    )
+    logger.info(f"Best Weight Confirmed : {best_epoch+1}'th epoch")
 
 def inference(model, data,additional_data, logger=None):
     model.eval()
