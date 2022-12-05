@@ -6,7 +6,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 import torch
-import tqdm
+from tqdm import tqdm
 from sklearn.preprocessing import LabelEncoder
 
 
@@ -62,7 +62,7 @@ class Preprocess:
         #cate_cols = ["assessmentItemID", "testId", "KnowledgeTag", "ass_aver", "user_aver"]
         cate_cols = (["assessmentItemID", "testId", "KnowledgeTag", 
                     "ass_aver", "user_aver","big", "past_correct", "same_item_cnt", "problem_id_mean",
-                    "month_mean" ])
+                    "month_mean", "elo" ])
 
         if not os.path.exists(self.args.asset_dir):
             os.makedirs(self.args.asset_dir)
@@ -103,6 +103,9 @@ class Preprocess:
     def x_100(self, value):   #0~100범위로 바꿔주기
         return int(value * 100)
 
+    
+
+
 
     def __feature_engineering(self, df):
         #문항별 평균 평점
@@ -123,6 +126,7 @@ class Preprocess:
         df["big_"] = df["assessmentItemID"].str[2]
         big_ = df.groupby(['big_'])['answerCode'].agg(['mean'])
         df = pd.merge(df, big_, on=['big_'], how="left")
+        df = df.drop(columns = ['big_'])
         df = df.rename(columns={'mean':'big'})
         df['big'] = df['big'].apply(self.x_100)
 
@@ -138,6 +142,7 @@ class Preprocess:
         df['problem_id'] = df['assessmentItemID'].str[-3:]
         problem_id_mean_ = df.groupby('problem_id')['answerCode'].agg(['mean'])
         df = pd.merge(df, problem_id_mean_, on=['problem_id'], how="left")
+        df = df.drop(columns = ['problem_id'])
         df = df.rename(columns={'mean':'problem_id_mean'})
         df['problem_id_mean'] = df['problem_id_mean'].apply(self.x_100)
 
@@ -146,8 +151,102 @@ class Preprocess:
         df['month'].astype(int)
         month_mean_ = df.groupby('month')['answerCode'].agg(['mean'])
         df = pd.merge(df, month_mean_, on=['month'], how="left")
+        df = df.drop(columns = ['month'])
         df = df.rename(columns={'mean':'month_mean'})
         df['month_mean'] = df['month_mean'].apply(self.x_100)
+
+        #elo
+        def elo(df):
+            def get_new_theta(is_good_answer, beta, left_asymptote, theta, nb_previous_answers):
+                return theta + learning_rate_theta(nb_previous_answers) * (
+                    is_good_answer - probability_of_good_answer(theta, beta, left_asymptote)
+                )
+
+            def get_new_beta(is_good_answer, beta, left_asymptote, theta, nb_previous_answers):
+                return beta - learning_rate_beta(nb_previous_answers) * (
+                    is_good_answer - probability_of_good_answer(theta, beta, left_asymptote)
+                )
+
+            def learning_rate_theta(nb_answers):
+                return max(0.3 / (1 + 0.01 * nb_answers), 0.04)
+
+            def learning_rate_beta(nb_answers):
+                return 1 / (1 + 0.05 * nb_answers)
+
+            def probability_of_good_answer(theta, beta, left_asymptote):
+                return left_asymptote + (1 - left_asymptote) * sigmoid(theta - beta)
+
+            def sigmoid(x):
+                return 1 / (1 + np.exp(-x))
+
+            def estimate_parameters(answers_df, granularity_feature_name="assessmentItemID"):
+                item_parameters = {
+                    granularity_feature_value: {"beta": 0, "nb_answers": 0}
+                    for granularity_feature_value in np.unique(
+                        answers_df[granularity_feature_name]
+                    )
+                }
+                student_parameters = {
+                    student_id: {"theta": 0, "nb_answers": 0}
+                    for student_id in np.unique(answers_df.userID)
+                }
+
+                print("Parameter estimation is starting...", flush=True)
+
+                for student_id, item_id, left_asymptote, answered_correctly in tqdm(
+                    zip(
+                        answers_df.userID.values,
+                        answers_df[granularity_feature_name].values,
+                        answers_df.left_asymptote.values,
+                        answers_df.answerCode.values,
+                    ),
+                    total=len(answers_df),
+                ):
+                    theta = student_parameters[student_id]["theta"]
+                    beta = item_parameters[item_id]["beta"]
+
+                    item_parameters[item_id]["beta"] = get_new_beta(
+                        answered_correctly,
+                        beta,
+                        left_asymptote,
+                        theta,
+                        item_parameters[item_id]["nb_answers"],
+                    )
+                    student_parameters[student_id]["theta"] = get_new_theta(
+                        answered_correctly,
+                        beta,
+                        left_asymptote,
+                        theta,
+                        student_parameters[student_id]["nb_answers"],
+                    )
+
+                    item_parameters[item_id]["nb_answers"] += 1
+                    student_parameters[student_id]["nb_answers"] += 1
+
+                print(f"Theta & beta estimations on {granularity_feature_name} are completed.")
+                return student_parameters, item_parameters
+
+            def gou_func(theta, beta):
+                return 1 / (1 + np.exp(-(theta - beta)))
+
+            df["left_asymptote"] = 0
+
+            print(f"Dataset of shape {df.shape}")
+            print(f"Columns are {list(df.columns)}")
+
+            student_parameters, item_parameters = estimate_parameters(df)
+
+            prob = [
+                gou_func(student_parameters[student]["theta"], item_parameters[item]["beta"])
+                for student, item in zip(df.userID.values, df.assessmentItemID.values)
+            ]
+
+            df["elo"] = prob
+
+            return df
+
+        df = elo(df)
+
 
         return df
 
@@ -189,11 +288,14 @@ class Preprocess:
         self.args.n_month_mean = len(
             np.load(os.path.join(self.args.asset_dir, "month_mean_classes.npy"))
         )
+        self.args.n_elo = len(
+            np.load(os.path.join(self.args.asset_dir, "elo_classes.npy"))
+        )
 
         df = df.sort_values(by=["userID", "Timestamp"], axis=0)
         columns = ["userID", "assessmentItemID", "testId", "answerCode", "KnowledgeTag",
                     "ass_aver","user_aver","big", "past_correct", "same_item_cnt", "problem_id_mean",
-                    "month_mean"]
+                    "month_mean", "elo"]
         #columns = ["userID", "assessmentItemID", "testId", "answerCode", "KnowledgeTag", "class"]
         group = (
             df[columns]
@@ -210,7 +312,8 @@ class Preprocess:
                     r["past_correct"].values,
                     r["same_item_cnt"].values,
                     r["problem_id_mean"].values,
-                    r["month_mean"].values
+                    r["month_mean"].values,
+                    r["elo"].values
 
                 )
             )
@@ -243,15 +346,15 @@ class DKTDataset(torch.utils.data.Dataset):
 
         (test, question, tag, correct, ass_aver, user_aver, big,
         past_correct, same_item_cnt, problem_id_mean,
-        month_mean)= (
+        month_mean, elo)= (
             row[0], row[1], row[2], row[3], row[4], row[5], row[6],
-             row[7], row[8], row[9], row[10])
+             row[7], row[8], row[9], row[10], row[11])
         #test, question, tag, correct, cls = row[0], row[1], row[2], row[3], row[4]
 
         #cate_cols = [test, question, tag, correct, cls]
         cate_cols = ([test, question, tag, correct, ass_aver, user_aver, big,
                         past_correct, same_item_cnt, problem_id_mean,
-                        month_mean])
+                        month_mean, elo])
 
         # max seq len을 고려하여서 이보다 길면 자르고 아닐 경우 그대로 냅둔다
         if seq_len > self.args.max_seq_len:

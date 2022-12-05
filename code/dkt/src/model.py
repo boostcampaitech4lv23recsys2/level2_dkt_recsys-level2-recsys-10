@@ -95,10 +95,11 @@ class LSTMATTN(nn.Module):
         self.embedding_same_item_cnt = nn.Embedding(self.args.n_same_item_cnt + 1, self.hidden_dim // 3)
         self.embedding_problem_id_mean = nn.Embedding(self.args.n_problem_id_mean + 1, self.hidden_dim // 3)
         self.embedding_month_mean = nn.Embedding(self.args.n_month_mean + 1, self.hidden_dim // 3)
+        self.embedding_elo = nn.Embedding(self.args.n_elo + 1, self.hidden_dim // 3)
 
 
         # embedding combination projection
-        self.comb_proj = nn.Linear((self.hidden_dim // 3) * 11, self.hidden_dim)
+        self.comb_proj = nn.Linear((self.hidden_dim // 3) * 12, self.hidden_dim)
 
         self.lstm = nn.LSTM(self.hidden_dim, self.hidden_dim, self.n_layers, batch_first=True)
 
@@ -125,7 +126,7 @@ class LSTMATTN(nn.Module):
         #print(input)
         (test, question, tag, _, mask, ass_aver, user_aver, big, 
         past_correct, same_item_cnt, problem_id_mean, 
-        month_mean, interaction)= input  
+        month_mean, elo,interaction)= input  
         batch_size = interaction.size(0)
 
         # Embedding
@@ -140,6 +141,7 @@ class LSTMATTN(nn.Module):
         embed_same_item_cnt = self.embedding_same_item_cnt(same_item_cnt)
         embed_problem_id_mean = self.embedding_problem_id_mean(problem_id_mean)
         embed_month_mean = self.embedding_month_mean(month_mean)
+        embed_elo = self.embedding_elo(elo)
 
 
         # print(embed_interaction.shape)
@@ -161,7 +163,8 @@ class LSTMATTN(nn.Module):
                 embed_past_correct,
                 embed_same_item_cnt,
                 embed_problem_id_mean,
-                embed_month_mean
+                embed_month_mean,
+                embed_elo
 
             ],
             2,
@@ -299,16 +302,17 @@ class Saint(nn.Module):
         self.embedding_same_item_cnt = nn.Embedding(self.args.n_same_item_cnt + 1, self.hidden_dim // 3)
         self.embedding_problem_id_mean = nn.Embedding(self.args.n_problem_id_mean + 1, self.hidden_dim // 3)
         self.embedding_month_mean = nn.Embedding(self.args.n_month_mean + 1, self.hidden_dim // 3)
+        self.embedding_elo = nn.Embedding(self.args.n_elo + 1, self.hidden_dim // 3)
         
         # encoder combination projection
-        self.enc_comb_proj = nn.Linear((self.hidden_dim//3)*10, self.hidden_dim)
+        self.enc_comb_proj = nn.Linear((self.hidden_dim//3)*11, self.hidden_dim)
 
         # DECODER embedding
         # interaction은 현재 correct으로 구성되어있다. correct(1, 2) + padding(0)
         self.embedding_interaction = nn.Embedding(3, self.hidden_dim//3)
         
         # decoder combination projection
-        self.dec_comb_proj = nn.Linear((self.hidden_dim//3)*11, self.hidden_dim)
+        self.dec_comb_proj = nn.Linear((self.hidden_dim//3)*12, self.hidden_dim)
 
         # Positional encoding
         self.pos_encoder = PositionalEncoding(self.hidden_dim, self.dropout, self.args.max_seq_len)
@@ -340,7 +344,7 @@ class Saint(nn.Module):
         #test, question, tag, _, mask, interaction, _ = input
         (test, question, tag, _, mask, ass_aver, user_aver, big, 
         past_correct, same_item_cnt, problem_id_mean, 
-        month_mean, interaction)= input  
+        month_mean, elo, interaction)= input  
 
         batch_size = interaction.size(0)
         seq_len = interaction.size(1)
@@ -357,6 +361,7 @@ class Saint(nn.Module):
         embed_same_item_cnt = self.embedding_same_item_cnt(same_item_cnt)
         embed_problem_id_mean = self.embedding_problem_id_mean(problem_id_mean)
         embed_month_mean = self.embedding_month_mean(month_mean)
+        embed_elo = self.embedding_elo(elo)
 
         embed_enc = torch.cat([embed_test,
                                embed_question,
@@ -367,7 +372,8 @@ class Saint(nn.Module):
                                embed_past_correct,
                                embed_same_item_cnt,
                                embed_problem_id_mean,
-                               embed_month_mean
+                               embed_month_mean,
+                               embed_elo
                                ], 2)                             
 
         embed_enc = self.enc_comb_proj(embed_enc)
@@ -384,6 +390,7 @@ class Saint(nn.Module):
         embed_same_item_cnt = self.embedding_same_item_cnt(same_item_cnt)
         embed_problem_id_mean = self.embedding_problem_id_mean(problem_id_mean)
         embed_month_mean = self.embedding_month_mean(month_mean)
+        embed_elo = self.embedding_elo(elo)
 
         embed_dec = torch.cat([embed_test,
                                embed_question,
@@ -395,7 +402,8 @@ class Saint(nn.Module):
                                embed_past_correct,
                                embed_same_item_cnt,
                                embed_problem_id_mean,
-                               embed_month_mean
+                               embed_month_mean,
+                               embed_elo
                                ], 2)
 
         embed_dec = self.dec_comb_proj(embed_dec)

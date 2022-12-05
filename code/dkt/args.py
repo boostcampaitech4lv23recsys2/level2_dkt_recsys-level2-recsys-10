@@ -6,7 +6,7 @@ def parse_args():
 
     parser.add_argument("--seed", default=42, type=int, help="seed")
 
-    parser.add_argument("--device", default="gpu", type=str, help="cpu or gpu")
+    parser.add_argument("--device", default="cpu", type=str, help="cpu or gpu")
 
     parser.add_argument(
         "--data_dir",
@@ -36,7 +36,7 @@ def parse_args():
         "--test_file_name", default="test_data.csv", type=str, help="test file name"
     )
 
-    parser.add_argument("--max_seq_len", default=10 , type=int, help="max sequence length")
+    parser.add_argument("--max_seq_len", default=50 , type=int, help="max sequence length")
     parser.add_argument("--num_workers", default=1, type=int, help="number of workers")
 
     # 모델
@@ -47,7 +47,7 @@ def parse_args():
 
     # 훈련
     parser.add_argument("--n_epochs", default=20, type=int, help="number of epochs")
-    parser.add_argument("--batch_size", default=16, type=int, help="batch size")
+    parser.add_argument("--batch_size", default=64, type=int, help="batch size")
     parser.add_argument("--lr", default=0.0001, type=float, help="learning rate")   #default=0.0001
     parser.add_argument("--clip_grad", default=30, type=int, help="clip grad")   #default=10
     parser.add_argument("--patience", default=5, type=int, help="for early stopping")
@@ -59,13 +59,13 @@ def parse_args():
     parser.add_argument("--scheduler", default="linear_warmup", type=str, help="scheduler type")
 
     # Data Augmentation
-    parser.add_argument("--window", default=True, type=bool, help="window") # False 면 augumentation X
+    parser.add_argument("--window", default=False, type=bool, help="window") # False 면 augumentation X
     parser.add_argument("--shuffle", default=False, type=bool, help="shuffle")
     parser.add_argument("--stride", default=10, type=int, help="stride")
     parser.add_argument("--shuffle_n", default=3, type=int, help="number of shuffle")
 
     # k-fold
-    parser.add_argument("--split", default="user", type=str, help="data split strategy")
+    parser.add_argument("--split", default="k-fold", type=str, help="data split strategy")
     parser.add_argument("--n_splits", default=5, type=str, help="number of k-fold splits")
 
     args = parser.parse_args()

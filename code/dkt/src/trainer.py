@@ -13,13 +13,14 @@ from .optimizer import get_optimizer
 from .scheduler import get_scheduler
 from .dataloader import get_loaders, data_augmentation
 
-def run(args, train_data, valid_data, model):
+#def run(args, train_data, valid_data, model):
+def run(args, train_data, valid_data, model, kf_auc, kf_n=0):
     # print(args)
     torch.cuda.empty_cache()
     gc.collect()
 
-    augmented_train_data = data_augmentation(train_data, args)
-    train_data = augmented_train_data
+    # augmented_train_data = data_augmentation(train_data, args)
+    # train_data = augmented_train_data
 
     train_loader, valid_loader = get_loaders(args, train_data, valid_data)
 
@@ -81,6 +82,8 @@ def run(args, train_data, valid_data, model):
         # scheduler
         if args.scheduler == "plateau":
             scheduler.step(best_auc)
+
+    kf_auc.append(best_auc)
 
 
 def train(train_loader, model, optimizer, scheduler, args):
@@ -201,7 +204,7 @@ def get_model(args):
 def process_batch(batch):
     (test, question, tag, correct, ass_aver, user_aver, big, 
     past_correct, same_item_cnt, problem_id_mean ,
-    month_mean, mask) = batch
+    month_mean, elo,mask) = batch
     # print('########################################################')
     # print('print batch : ')
     # print(batch)
@@ -229,9 +232,10 @@ def process_batch(batch):
     same_item_cnt = ((same_item_cnt + 1) * mask).int()
     problem_id_mean = ((problem_id_mean + 1) * mask).int()
     month_mean = ((month_mean + 1) * mask).int()
+    elo = ((elo + 1) * mask).int()
     #return (test, question, tag, correct, mask, cls, interaction)
     return (test, question, tag, correct, mask, ass_aver, user_aver,big, 
-            past_correct, same_item_cnt, problem_id_mean, month_mean,interaction)
+            past_correct, same_item_cnt, problem_id_mean, month_mean, elo, interaction)
 
 
 # loss계산하고 parameter update!
@@ -266,29 +270,29 @@ def save_checkpoint(state, model_dir, model_filename):
     torch.save(state, os.path.join(model_dir, model_filename))
 
 
-def load_model(args):
+# def load_model(args):
 
-    model_path = os.path.join(args.model_dir, args.model_name)
-    print("Loading Model from:", model_path)
-    load_state = torch.load(model_path)
-    model = get_model(args)
-
-    # load model state
-    model.load_state_dict(load_state["state_dict"], strict=True)
-
-    print("Loading Model from:", model_path, "...Finished.")
-    return model
-
-# def load_model(args, idx):
-#     if args.split == 'user':
-#         model_path = os.path.join(args.model_dir, args.model_name)
-#     elif args.split == 'k-fold':
-#         model_path = os.path.join(args.model_dir, args.model_name_k_fold + f'_{idx}.pt')
+#     model_path = os.path.join(args.model_dir, args.model_name)
 #     print("Loading Model from:", model_path)
 #     load_state = torch.load(model_path)
 #     model = get_model(args)
 
-    # load model state
+#     # load model state
+#     model.load_state_dict(load_state["state_dict"], strict=True)
+
+#     print("Loading Model from:", model_path, "...Finished.")
+#     return model
+
+def load_model(args, idx):
+    if args.split == 'user':
+        model_path = os.path.join(args.model_dir, args.model_name)
+    elif args.split == 'k-fold':
+        model_path = os.path.join(args.model_dir, args.model_name_k_fold + f'_{idx}.pt')
+    print("Loading Model from:", model_path)
+    load_state = torch.load(model_path)
+    model = get_model(args)
+
+    #load model state
     model.load_state_dict(load_state["state_dict"], strict=True)
 
     print("Loading Model from:", model_path, "...Finished.")
