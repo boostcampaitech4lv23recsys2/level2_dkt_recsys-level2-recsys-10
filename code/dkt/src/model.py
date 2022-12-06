@@ -242,6 +242,8 @@ class Bert(nn.Module):
         # Defining some parameters
         self.hidden_dim = self.args.hidden_dim
         self.n_layers = self.args.n_layers
+        self.n_heads = self.args.n_heads
+        self.drop_out = self.args.drop_out
 
         # Embedding
         # interaction은 현재 correct으로 구성되어있다. correct(1, 2) + padding(0)
@@ -291,6 +293,8 @@ class Bert(nn.Module):
             hidden_size=self.hidden_dim,
             num_hidden_layers=self.args.n_layers,
             num_attention_heads=self.args.n_heads,
+            hidden_dropout_prob=self.drop_out,
+            attention_probs_dropout_prob=self.drop_out,
             max_position_embeddings=self.args.max_seq_len,
         )
 
@@ -350,10 +354,11 @@ class Bert(nn.Module):
         out = encoded_layers[0]
 
         out = out.contiguous().view(batch_size, -1, self.hidden_dim)
+
         out = self.fc(out)
 
-        # preds = self.activation(out).view(batch_size, -1)
-        preds = out.view(batch_size, -1)
+        preds = self.activation(out).view(batch_size, -1)
+        # preds = out.view(batch_size, -1)
 
         return preds
 

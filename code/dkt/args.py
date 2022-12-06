@@ -19,8 +19,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        # "--file_name", default="train_data_3.csv", type=str, help="train file name"
-        "--file_name", default="total_data.csv", type=str, help="train file name"
+        "--file_name", default="total_data_hyein5.csv", type=str, help="train file name"
+        # "--file_name", default="total_data.csv", type=str, help="train file name"
     )
 
     parser.add_argument(
@@ -54,7 +54,7 @@ def parse_args():
     )
     parser.add_argument("--n_layers", default=1, type=int, help="number of layers")     # 2
     parser.add_argument("--n_heads", default=16, type=int, help="number of heads")      # 2
-    parser.add_argument("--drop_out", default=0.4, type=float, help="drop out rate")    # 0.2
+    parser.add_argument("--drop_out", default=0.5, type=float, help="drop out rate")    # 0.2
 
     # 훈련
     parser.add_argument("--n_epochs", default=100, type=int, help="number of epochs")   # 20 / 100
@@ -68,7 +68,7 @@ def parse_args():
     )
 
     ### 중요 ###
-    parser.add_argument("--model", default="lastquery", type=str, help="model type")         # lstm
+    parser.add_argument("--model", default="bert", type=str, help="model type")         # lstm
     parser.add_argument("--optimizer", default="adam", type=str, help="optimizer type")
     parser.add_argument(
         "--scheduler", default="linear_warmup", type=str, help="scheduler type" # plateau / linear_warmup
@@ -93,31 +93,54 @@ def parse_args():
                                 # 'hour',
                                 # 'month',
                                 # 'dayofweek',
-                                # 'item_num',
+                                'item_num',
                                 # 'item_seq',
                                 # ‘Bigcat_class’,
                                 # ‘day_diff’,
                         ],
                         help="category features")
 
+    # # continous featurs
+    # parser.add_argument('--conti_feats', type=list, nargs="+",
+    #                     default=['elapsed',
+    #                             #'solved_time_prior', #'solved_time',
+    #                             # 'user_avg', 'item_avg', 'test_avg', 'bigcat_avg', 'tag_avg',
+    #                             # 'user_time_avg', 'item_time_avg', 'test_time_avg', 'bigcat_time_avg', 'tag_time_avg',
+    #                             # 'user_std', 'item_std', 'test_std', 'bigcat_std', 'tag_std',
+    #                             # 'user_cum_cnt', 'item_cum_cnt', #'test_cum_cnt', 'bigcat_cum_cnt', 'tag_cum_cnt',
+    #                             #'user_cor_cum_cnt', 'item_cor_cum_cnt', #'test_cor_cum_cnt', 'bigcat_cor_cum_cnt', 'tag_cor_cum_cnt',
+    #                             'user_cum_acc', 'item_cum_acc', #'test_cum_acc', 'bigcat_cum_acc', 'tag_cum_acc',
+    #                             # 'test_cum_cnt_per_user', 'bigcat_cum_cnt_per_user', 'tag_cum_cnt_per_user',
+    #                             # 'test_cor_cum_per_user', 'bigcat_cor_cum_per_user', 'tag_cor_cum_per_user',
+    #                             # 'test_cum_acc_per_user', 'bigcat_cum_acc_per_user', 'tag_cum_acc_per_user',
+    #                             'user_cur_avg', 'user_cur_time_avg',
+    #                             'user_rec_avg_rolling5', #'user_rec_time_avg_rolling5', 
+    #                             # 'user_rec_avg_rolling7', 'user_rec_time_avg_rolling7', 
+    #                             # 'user_rec_avg_rolling10', 'user_rec_time_avg_rolling10',
+    #                             # 'item_rec_avg_rolling5', 'item_rec_time_avg_rolling5', 
+    #                             # 'item_rec_avg_rolling7', 'item_rec_time_avg_rolling7', 
+    #                             # 'item_rec_avg_rolling10', 'item_rec_time_avg_rolling10'
+    #                     ],
+    #                     help = "numeric features")
     # continous featurs
     parser.add_argument('--conti_feats', type=list, nargs="+",
                         default=['elapsed',
                                 #'solved_time_prior', #'solved_time',
-                                # 'user_avg', 'item_avg', 'test_avg', 'bigcat_avg', 'tag_avg',
+                                'user_avg', 'item_avg', 'test_avg', 'bigcat_avg', 'tag_avg',
                                 # 'user_time_avg', 'item_time_avg', 'test_time_avg', 'bigcat_time_avg', 'tag_time_avg',
                                 # 'user_std', 'item_std', 'test_std', 'bigcat_std', 'tag_std',
                                 # 'user_cum_cnt', 'item_cum_cnt', #'test_cum_cnt', 'bigcat_cum_cnt', 'tag_cum_cnt',
                                 #'user_cor_cum_cnt', 'item_cor_cum_cnt', #'test_cor_cum_cnt', 'bigcat_cor_cum_cnt', 'tag_cor_cum_cnt',
-                                'user_cum_acc', 'item_cum_acc', #'test_cum_acc', 'bigcat_cum_acc', 'tag_cum_acc',
+                                #'user_cum_acc', 'item_cum_acc', 'test_cum_acc', #'bigcat_cum_acc', 'tag_cum_acc',
                                 # 'test_cum_cnt_per_user', 'bigcat_cum_cnt_per_user', 'tag_cum_cnt_per_user',
                                 # 'test_cor_cum_per_user', 'bigcat_cor_cum_per_user', 'tag_cor_cum_per_user',
-                                # 'test_cum_acc_per_user', 'bigcat_cum_acc_per_user', 'tag_cum_acc_per_user',
+                                #'test_cum_acc_per_user', #'bigcat_cum_acc_per_user', 
+                                #'tag_cum_acc_per_user',
                                 'user_cur_avg', 'user_cur_time_avg',
                                 'user_rec_avg_rolling5', #'user_rec_time_avg_rolling5', 
                                 # 'user_rec_avg_rolling7', 'user_rec_time_avg_rolling7', 
                                 # 'user_rec_avg_rolling10', 'user_rec_time_avg_rolling10',
-                                # 'item_rec_avg_rolling5', 'item_rec_time_avg_rolling5', 
+                                # 'item_rec_avg_rolling5', #'item_rec_time_avg_rolling5', 
                                 # 'item_rec_avg_rolling7', 'item_rec_time_avg_rolling7', 
                                 # 'item_rec_avg_rolling10', 'item_rec_time_avg_rolling10'
                         ],

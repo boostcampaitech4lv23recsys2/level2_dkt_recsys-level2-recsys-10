@@ -83,10 +83,10 @@ class Preprocess:
         csv_file_path = os.path.join(self.args.data_dir, file_name)
         df = pd.read_csv(csv_file_path)  # , nrows=100000)
 
-        if is_train: # 0: train, 1: test, 2: test(null)
-            df = df[df["train"] != 2]
+        if is_train: # 1: train, 0: test, 2: test(null)
+            df = df[df["train"] == 1]
         else:
-            df = df[df["train"] != 0]
+            df = df[df["train"] == 0]
             # df = df[(df['answerCode']==-1) | (df['answerCode']==0)]
 
         df = self.__feature_engineering(df)
