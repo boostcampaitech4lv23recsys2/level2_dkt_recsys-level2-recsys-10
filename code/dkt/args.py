@@ -19,7 +19,7 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--file_name", default="total_data_hyein5.csv", type=str, help="train file name"
+        "--file_name", default="total_data_hyein6.csv", type=str, help="train file name"
         # "--file_name", default="total_data.csv", type=str, help="train file name"
     )
 
@@ -38,7 +38,8 @@ def parse_args():
         "--output_dir", default="output/", type=str, help="output directory"
     )
     parser.add_argument(
-        "--test_file_name", default="total_data.csv", type=str, help="test file name"
+        # "--test_file_name", default="total_data.csv", type=str, help="test file name"
+        "--test_file_name", default="total_data_hyein6.csv", type=str, help="test file name"
     )
 
 
@@ -83,13 +84,13 @@ def parse_args():
 
     
     # categorical featurs
-    parser.add_argument('--cate_feats', type=list, nargs="+",
+    parser.add_argument('--cate_feats', nargs="+",
                         default=['assessmentItemID',
                                 'testId',
                                 'KnowledgeTag',
                                 'bigcat',
-                                # 'smallcat',
-                                'timeClass',
+                                'smallcat',
+                                # 'timeClass',
                                 # 'hour',
                                 # 'month',
                                 # 'dayofweek',
@@ -123,10 +124,10 @@ def parse_args():
     #                     ],
     #                     help = "numeric features")
     # continous featurs
-    parser.add_argument('--conti_feats', type=list, nargs="+",
+    parser.add_argument('--conti_feats', nargs="+",
                         default=['elapsed',
                                 #'solved_time_prior', #'solved_time',
-                                'user_avg', 'item_avg', 'test_avg', 'bigcat_avg', 'tag_avg',
+                                # 'user_avg', 'item_avg', 'test_avg', 'bigcat_avg', 'tag_avg',
                                 # 'user_time_avg', 'item_time_avg', 'test_time_avg', 'bigcat_time_avg', 'tag_time_avg',
                                 # 'user_std', 'item_std', 'test_std', 'bigcat_std', 'tag_std',
                                 # 'user_cum_cnt', 'item_cum_cnt', #'test_cum_cnt', 'bigcat_cum_cnt', 'tag_cum_cnt',
@@ -136,13 +137,14 @@ def parse_args():
                                 # 'test_cor_cum_per_user', 'bigcat_cor_cum_per_user', 'tag_cor_cum_per_user',
                                 #'test_cum_acc_per_user', #'bigcat_cum_acc_per_user', 
                                 #'tag_cum_acc_per_user',
-                                'user_cur_avg', 'user_cur_time_avg',
-                                'user_rec_avg_rolling5', #'user_rec_time_avg_rolling5', 
+                                # 'user_cur_avg', 'user_cur_time_avg',
+                                # 'user_rec_avg_rolling5', #'user_rec_time_avg_rolling5', 
                                 # 'user_rec_avg_rolling7', 'user_rec_time_avg_rolling7', 
                                 # 'user_rec_avg_rolling10', 'user_rec_time_avg_rolling10',
                                 # 'item_rec_avg_rolling5', #'item_rec_time_avg_rolling5', 
                                 # 'item_rec_avg_rolling7', 'item_rec_time_avg_rolling7', 
                                 # 'item_rec_avg_rolling10', 'item_rec_time_avg_rolling10'
+                                # 'elo_assessmentItemID', #'elo_testId', 'elo_KnowledgeTag'
                         ],
                         help = "numeric features")
 

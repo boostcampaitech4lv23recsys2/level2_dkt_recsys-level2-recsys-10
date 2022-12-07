@@ -1,7 +1,7 @@
 program: train.py
 method: bayes
 metric:
-  name: best_valid_auc_epoch
+  name: valid_auc_epoch
   goal: maximize
 parameters:
   # n_heads: 
