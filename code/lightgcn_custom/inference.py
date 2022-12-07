@@ -29,8 +29,8 @@ def main():
 
     model_list = [ build(
             num_info,
-            embedding_dim=CFG.embedding_dim,
-            num_layers=CFG.num_layers,
+            embedding_dim=CFG.hidden_dim,
+            num_layers=CFG.n_layers,
             alpha=CFG.alpha,
             weight=f"{CFG.weight}_{k_idx}.pt",
             logger=logger.getChild("build"),

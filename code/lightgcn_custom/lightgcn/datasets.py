@@ -30,18 +30,12 @@ def custom_train_test_split(df, ratio=0.7, split=True):
     test = test[test['userID'] != test['userID'].shift(-1)]
     return train, test
 
-def separate_data_v2(data):
-    valid_idx = np.array((data.answerCode < 0).tolist()[1:]+[False])
-    train_data = data[(data.answerCode >= 0) * (1-valid_idx).astype(bool)]
-    valid_data = data[valid_idx]
-    test_data = data[data.answerCode < 0]
-
-    return train_data, valid_data, test_data
 
 def prepare_dataset(device, basepath, verbose=True, logger=None):
     data = load_data(basepath)
     preprocessing_data(data)
     train_data, test_data = separate_data(data)
+    # train,valid, test_data = separate_data_v2(data)
     # add split function 
     train,valid = train_test_split(train_data, test_size=0.2)
     # train,valid = custom_train_test_split(train_data)
@@ -51,20 +45,21 @@ def prepare_dataset(device, basepath, verbose=True, logger=None):
     valid_data_proc = process_data(valid, id2index, device)
     test_data_proc = process_data(test_data, id2index, device)
 
+    train_data_list, valid_data_list = [train_data_proc], [valid_data_proc]
+
     if verbose:
         print_data_stat(train_data, "Train", logger=logger)
         print_data_stat(test_data, "Test", logger=logger)
 
     # return train_data_proc, test_data_proc, len(id2index)
-    return train_data_proc,valid_data_proc, test_data_proc, num_info,  additional_data
+    return train_data_list,valid_data_list, test_data_proc, num_info,  additional_data
 
-def prepare_dataset_kfold(device, basepath, verbose=True, logger=None):
+def prepare_dataset_kfold(device, basepath, num_fold= 10, verbose=True, logger=None):
     data = load_data(basepath)
     preprocessing_data(data)
     train_data, test_data = separate_data(data)
-    # train, valid, test_data = separate_data_v2(data)
     # add split function 
-    skf = StratifiedKFold(n_splits=10)
+    skf = StratifiedKFold(n_splits=num_fold)
     # skf.get_n_splits(train_data, train_data["answerCode"])
     
     id2index, num_info = indexing_data(data)

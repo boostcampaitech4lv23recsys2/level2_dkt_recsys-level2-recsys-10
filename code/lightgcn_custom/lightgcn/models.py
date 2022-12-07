@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Optional, Union, Tuple
 from torch_geometric.typing import Adj, OptTensor
 
 import os
@@ -11,6 +11,15 @@ from torch_geometric.nn import MessagePassing
 from torch.nn import Embedding, ModuleList
 from torch_geometric.nn.conv import LGConv
 from torch_sparse import SparseTensor
+
+try:
+    from transformers.modeling_bert import BertConfig, BertEncoder, BertModel
+except:
+    from transformers.models.bert.modeling_bert import (
+        BertConfig,
+        BertEncoder,
+        BertModel,
+    )
 
 
 class MyLightGCN(torch.nn.Module):
@@ -86,7 +95,8 @@ class MyLightGCN(torch.nn.Module):
         for conv in self.convs:
             conv.reset_parameters()
 
-    def get_embedding(self, edge_index: Adj, additional_info:dict=None, edge_weight: OptTensor = None) -> Tensor:
+    def get_embedding(self, edge_index: Adj, additional_info:dict=None, edge_weight: OptTensor = None, 
+                      training:bool=True, dropout:float=0.2) -> Tensor:
 
         item_embedding_weight = self.item_embedding.weight 
         tag_embedding_weight  = self.tag_embedding(additional_info["item"]["KnowledgeTag"] )
@@ -118,6 +128,11 @@ class MyLightGCN(torch.nn.Module):
         
         # x = self.embedding.weight
         out = x * self.alpha[0]
+
+        # edge drop out
+        edge_index, edge_mask = self.dropout_edge(edge_index,p=dropout,training=training)
+        edge_weight = torch.masked_select(edge_weight, edge_mask) 
+        self.edge_mask = edge_mask
         
         for i in range(self.num_layers):
             # edge_weight =  torch.ones(edge_index.size(1))
@@ -130,7 +145,8 @@ class MyLightGCN(torch.nn.Module):
 
 
     def forward(self, edge_index: Adj, additional_info:dict=None,
-            edge_label_index: OptTensor = None, edge_weight: OptTensor = None) -> Tensor:
+                edge_label_index: OptTensor = None, edge_weight: OptTensor = None, 
+                training:bool=False, dropou:float=0.2 ) -> Tensor:
         r"""Computes rankings for pairs of nodes.
 
         Args:
@@ -142,17 +158,82 @@ class MyLightGCN(torch.nn.Module):
                 If :obj:`edge_label_index` is set to :obj:`None`, all edges in
                 :obj:`edge_index` will be used instead. (default: :obj:`None`)
         """
+
         if edge_label_index is None:
             if isinstance(edge_index, SparseTensor):
                 edge_label_index = torch.stack(edge_index.coo()[:2], dim=0)
             else:
                 edge_label_index = edge_index
 
-        out = self.get_embedding(edge_index, additional_info,edge_weight)
+        out = self.get_embedding(edge_index, additional_info,edge_weight,training=training,dropout=dropout)
 
         out_src = out[edge_label_index[0]]
         out_dst = out[edge_label_index[1]]
         return (out_src * out_dst).sum(dim=-1)
+
+    def dropout_edge(self,edge_index: Tensor, p: float = 0.5,
+                 force_undirected: bool = False,
+                 training: bool = True) -> Tuple[Tensor, Tensor]:
+        r"""Randomly drops edges from the adjacency matrix
+        :obj:`edge_index` with probability :obj:`p` using samples from
+        a Bernoulli distribution.
+
+        The method returns (1) the retained :obj:`edge_index`, (2) the edge mask
+        or index indicating which edges were retained, depending on the argument
+        :obj:`force_undirected`.
+
+        Args:
+            edge_index (LongTensor): The edge indices.
+            p (float, optional): Dropout probability. (default: :obj:`0.5`)
+            force_undirected (bool, optional): If set to :obj:`True`, will either
+                drop or keep both edges of an undirected edge.
+                (default: :obj:`False`)
+            training (bool, optional): If set to :obj:`False`, this operation is a
+                no-op. (default: :obj:`True`)
+
+        :rtype: (:class:`LongTensor`, :class:`BoolTensor` or :class:`LongTensor`)
+
+        Examples:
+
+            >>> edge_index = torch.tensor([[0, 1, 1, 2, 2, 3],
+            ...                            [1, 0, 2, 1, 3, 2]])
+            >>> edge_index, edge_mask = dropout_edge(edge_index)
+            >>> edge_index
+            tensor([[0, 1, 2, 2],
+                    [1, 2, 1, 3]])
+            >>> edge_mask # masks indicating which edges are retained
+            tensor([ True, False,  True,  True,  True, False])
+
+            >>> edge_index, edge_id = dropout_edge(edge_index,
+            ...                                    force_undirected=True)
+            >>> edge_index
+            tensor([[0, 1, 2, 1, 2, 3],
+                    [1, 2, 3, 0, 1, 2]])
+            >>> edge_id # indices indicating which edges are retained
+            tensor([0, 2, 4, 0, 2, 4])
+        """
+        if p < 0. or p > 1.:
+            raise ValueError(f'Dropout probability has to be between 0 and 1 '
+                            f'(got {p}')
+
+        if not training or p == 0.0:
+            edge_mask = edge_index.new_ones(edge_index.size(1), dtype=torch.bool)
+            return edge_index, edge_mask
+
+        row, col = edge_index
+
+        edge_mask = torch.rand(row.size(0), device=edge_index.device) >= p
+
+        if force_undirected:
+            edge_mask[row > col] = False
+
+        edge_index = edge_index[:, edge_mask]
+
+        if force_undirected:
+            edge_index = torch.cat([edge_index, edge_index.flip(0)], dim=1)
+            edge_mask = edge_mask.nonzero().repeat((2, 1)).squeeze()
+
+        return edge_index, edge_mask
 
     def predict_link(self, edge_index: Adj, additional_info:dict=None,edge_label_index: OptTensor = None, edge_weight: OptTensor = None,
                      prob: bool = False) -> Tensor:
@@ -284,6 +365,7 @@ def train_kfold(
     n_epoch=100,
     early_stop = 10,
     learning_rate=0.01,
+    dropout=0.2,
     use_wandb=False,
     weight=None,
     logger=None,
@@ -314,7 +396,7 @@ def train_kfold(
         stop_check = 0 
         
         for e in range(n_epoch):
-            pred = model(cur_train_data["edge"],additional_data,edge_weight = cur_train_data["weight"])
+            pred = model(cur_train_data["edge"],additional_data,edge_weight = cur_train_data["weight"],training=True, dropout=dropout)
             loss = model.link_pred_loss(pred, cur_train_data["label"])
 
             # backward
