@@ -27,7 +27,7 @@ def main(args):
     train_data, valid_data = preprocess.split_data(train_data)
     print(train_data.shape)
 
-    report = OrderedDict()
+    # report = OrderedDict()
 
     wandb.init(project="dkt", config=vars(args))
 
