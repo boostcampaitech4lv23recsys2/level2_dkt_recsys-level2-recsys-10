@@ -50,7 +50,7 @@ def parse_args():
 
     # 모델
     parser.add_argument(
-        "--hidden_dim", default=128, type=int, help="hidden dimension size"             # 64
+        "--hidden_dim", default=256, type=int, help="hidden dimension size"             # 64
     )
     parser.add_argument("--n_layers", default=1, type=int, help="number of layers")     # 2
     parser.add_argument("--n_heads", default=16, type=int, help="number of heads")      # 2
@@ -61,7 +61,7 @@ def parse_args():
     parser.add_argument("--batch_size", default=64, type=int, help="batch size")        # 64
     parser.add_argument("--lr", default=0.003, type=float, help="learning rate")        # 0.0001
     parser.add_argument("--clip_grad", default=100, type=int, help="clip grad")         # 10 : gradient exploding 방지
-    parser.add_argument("--patience", default=10, type=int, help="for early stopping")  # 5
+    parser.add_argument("--patience", default=20, type=int, help="for early stopping")  # 5
 
     parser.add_argument(
         "--log_steps", default=50, type=int, help="print log per n steps"
@@ -78,7 +78,7 @@ def parse_args():
     # Data Augmentation
     parser.add_argument("--window", default=True, type=bool, help="window") # False 면 augumentation X
     parser.add_argument("--shuffle", default=False, type=bool, help="shuffle")
-    parser.add_argument("--stride", default=101, type=int, help="stride")
+    parser.add_argument("--stride", default=100, type=int, help="stride")
     parser.add_argument("--shuffle_n", default=3, type=int, help="number of shuffle")
 
     
@@ -92,19 +92,37 @@ def parse_args():
                                 'Bigcat_class',
 
                                 # 'day_diff',
-
                         ],
                         help="category features")
 
     # continous featurs
     parser.add_argument('--conti_feats', type=list, nargs="+",
-                        default=['prior_elapsed', #'current_elapsed',
-                                'user_avg', 'item_avg', 'Bigcat_avg', 'tag_avg',
-                                'user_std', 'item_std', 'Bigcat_std', 'tag_std',
-                                'user_retCumacc', # 'item_retCumacc',
-                                'user_cumacc', 'user_Bigcat_cumacc', 
-                                # 'tag_count', # 'assess_count',
-                                # 'day_diff',
+                        default=['prior_elapsed',
+                                'user_avg', 
+                                # 'test_avg', 
+                                'item_avg', 
+                                # 'tag_avg', 
+                                'Bigcat_avg',
+
+                                'user_std', 
+                                # 'test_std', 
+                                'item_std', 
+                                # 'tag_std', 
+                                'Bigcat_std',
+
+                                'user_retCumacc', 
+                                # 'user_retCount_correct_answer',
+                                'user_Cumacc', 
+
+                                'elo',
+                                # 'KnowledgeTag_elo',
+                                # 'Bigcat_elo',
+
+                                'tagLV',
+                                # 'userLV_Tag_avg',
+                                # 'userLV_Tag',
+
+                                'day_diff',
                         ], 
                         help = "numeric features")
 
