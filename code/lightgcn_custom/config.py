@@ -3,7 +3,7 @@
 # ====================================================
 class CFG:
     use_cuda_if_available = True
-    user_wandb = False
+    user_wandb = True
     wandb_kwargs = dict(project="dkt-gcn")
 
     # data
@@ -25,13 +25,13 @@ class CFG:
 
     # train
     n_epoch = 3000
-    early_stop = 20
-    learning_rate = 0.0013
+    early_stop = 3000
+    learning_rate = 0.0015
     weight_basepath = "./weight"
 
     # sweep
-    sweep=True
-    sweep_count = 100
+    sweep=False
+    sweep_count = 20
     sweep_name = 'yujin_test'
 
 sweep_conf = {
@@ -44,8 +44,8 @@ sweep_conf = {
     'parameters' : {
         'learning_rate': {
             'distribution': 'uniform',
-            'min': 0,
-            'max': 0.002
+            'min': 0.0013,
+            'max': 0.003
         },
         'num_layers': {
             'distribution': 'int_uniform',

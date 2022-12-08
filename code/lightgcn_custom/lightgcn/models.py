@@ -11,7 +11,8 @@ from torch_geometric.nn import MessagePassing
 from torch.nn import Embedding, ModuleList
 from torch_geometric.nn.conv import LGConv
 from torch_sparse import SparseTensor
-
+from torch import nn
+import torch.nn.functional as F
 try:
     from transformers.modeling_bert import BertConfig, BertEncoder, BertModel
 except:
@@ -80,6 +81,16 @@ class MyLightGCN(torch.nn.Module):
             self.tag_embedding  = Embedding(num_info["n_tags"], embedding_dim)
             self.testId_embedding  = Embedding(num_info["n_testids"], embedding_dim)
             self.bigcat_embedding  = Embedding(num_info["n_bigcat"], embedding_dim)
+
+            """
+            self.comb_proj = nn.Sequential(
+                # nn.ReLU(),
+                nn.Linear(self.args.embedding_dim//3, self.args.embedding_dim),
+                # nn.LayerNorm(self.args.hidden_dim)
+            )
+            """
+
+            self.daydiff_embedding  = Embedding(5, embedding_dim)
             self.convs = ModuleList([LGConv(**kwargs) for _ in range(num_layers)])
         
             # embedding layer 및 convolutional layer 의 weight 초기화 
@@ -91,6 +102,7 @@ class MyLightGCN(torch.nn.Module):
         torch.nn.init.xavier_uniform_(self.tag_embedding.weight)
         torch.nn.init.xavier_uniform_(self.testId_embedding.weight)
         torch.nn.init.xavier_uniform_(self.bigcat_embedding.weight)
+        torch.nn.init.xavier_uniform_(self.daydiff_embedding.weight)
 
         for conv in self.convs:
             conv.reset_parameters()
@@ -102,13 +114,23 @@ class MyLightGCN(torch.nn.Module):
         tag_embedding_weight  = self.tag_embedding(additional_info["item"]["KnowledgeTag"] )
         testId_embedding_weight  = self.testId_embedding(additional_info["item"]["testId"] )
         bigcat_embedding_weight  = self.bigcat_embedding(additional_info["item"]["big_category"] )
-
+        daydiff_embedding_weight = self.daydiff_embedding(additional_info["user"]["day_diff"])
         total_embedding_weight = item_embedding_weight
 
         embedding_list = [
                           tag_embedding_weight,
                           testId_embedding_weight,
-                          bigcat_embedding_weight]
+                          bigcat_embedding_weight,
+                         ]
+        
+        """ projection 0.821
+        embed = torch.cat( [item_embedding_weight,
+                    tag_embedding_weight,
+                    testId_embedding_weight,
+                    bigcat_embedding_weight])
+        
+        x = self.comb_proj(embed)
+        """
 
         for emb in embedding_list : 
             total_embedding_weight = total_embedding_weight + emb
@@ -122,8 +144,9 @@ class MyLightGCN(torch.nn.Module):
         #         self.item_embedding( additional_info["item"][k] )
 
         x = torch.cat([
-            self.user_embedding.weight, 
-            total_embedding_weight
+            ( self.user_embedding.weight + daydiff_embedding_weight ) / 2, 
+              total_embedding_weight
+            # total_embedding_weight
             ],dim= 0)
         
         # x = self.embedding.weight
@@ -134,19 +157,21 @@ class MyLightGCN(torch.nn.Module):
         edge_weight = torch.masked_select(edge_weight, edge_mask) 
         self.edge_mask = edge_mask
         
+        """
         for i in range(self.num_layers):
             # edge_weight =  torch.ones(edge_index.size(1))
             # print(edge_weight)
             # print(edge_weight.shape)
-            x = self.convs[i](x, edge_index, edge_weight = edge_weight)
+            x = self.convs[i](x, edge_index, edge_weight = None ) # edge_weight
             out = out + x * self.alpha[i + 1]
-
+        """
+            
         return out
 
 
     def forward(self, edge_index: Adj, additional_info:dict=None,
                 edge_label_index: OptTensor = None, edge_weight: OptTensor = None, 
-                training:bool=False, dropou:float=0.2 ) -> Tensor:
+                training:bool=False, dropout:float=0.2 ) -> Tensor:
         r"""Computes rankings for pairs of nodes.
 
         Args:
@@ -166,9 +191,9 @@ class MyLightGCN(torch.nn.Module):
                 edge_label_index = edge_index
 
         out = self.get_embedding(edge_index, additional_info,edge_weight,training=training,dropout=dropout)
-
         out_src = out[edge_label_index[0]]
         out_dst = out[edge_label_index[1]]
+
         return (out_src * out_dst).sum(dim=-1)
 
     def dropout_edge(self,edge_index: Tensor, p: float = 0.5,
@@ -259,6 +284,181 @@ class MyLightGCN(torch.nn.Module):
         """
         loss_fn = torch.nn.BCEWithLogitsLoss(**kwargs)
         return loss_fn(pred, edge_label.to(pred.dtype))
+
+##############################################################################################################
+# model test : LightGCN + Last Query Attention
+##############################################################################################################
+
+class Feed_Forward_block(nn.Module):
+    """
+    out =  Relu( M_out*w1 + b1) *w2 + b2
+    """
+    def __init__(self, dim_ff):
+        super().__init__()
+        self.layer1 = nn.Linear(in_features=dim_ff, out_features=dim_ff)
+        self.layer2 = nn.Linear(in_features=dim_ff, out_features=dim_ff)
+
+    def forward(self,ffn_in):
+        return self.layer2(F.relu(self.layer1(ffn_in)))
+
+class MyLightGCNWithAttn(MyLightGCN):
+    """ Initializes MyLightGCN Model
+    LightGCN 기본 클래스의 predict_link 등을 그대로 사용한다. 
+    https://arxiv.org/abs/2002.02126
+
+    Args:
+        num_nodes (int): 그래프의 노드 수 
+        embedding_dim (int): 노드 embedding dimension
+        num_layers (int): LGConv layer 수 
+        embedding_info (list): embedding 할 information dict list 
+                       ( name : column name, value : column 의 element 수, weight : 가중치 )
+        alpha (float or Tensor, optional): 레이어에 가산될 가중치
+        **kwargs (optional): Additional arguments of the underlying
+            :class:`~torch_geometric.nn.conv.LGConv` layers.
+    """
+
+    def __init__(
+            self,
+            num_info:dict,
+            embedding_dim: int,
+            num_layers: int,
+            alpha: Optional[Union[float, Tensor]] = None,
+            **kwargs,
+        ):
+            """
+            - userid embedding 
+            - assessmentItemId embedding
+            - assessmentItemId 의 각 속성 값 
+                - knowledge tag
+                - category value 
+            
+            - base embedding value 
+                - the number of user 
+                - the number of item 
+            
+            - additional information
+                - user additional information 
+                - item additional information 
+            """
+            # super().__init__(num_info["n_user"], embedding_dim,num_layers)
+            super().__init__(num_info, embedding_dim, num_layers, alpha )
+            use_cuda = torch.cuda.is_available()
+            self.device = torch.device("cuda" if use_cuda else "cpu")
+            """ for attention 
+            """
+            # 기존 keetar님 솔루션에서는 Positional Embedding은 사용되지 않습니다
+            # 하지만 사용 여부는 자유롭게 결정해주세요 :)
+            # self.embedding_position = nn.Embedding(self.args.max_seq_len, self.hidden_dim)
+            
+            # Encoder
+            self.query = nn.Linear(in_features=self.embedding_dim, out_features=self.embedding_dim)
+            self.key = nn.Linear(in_features=self.embedding_dim, out_features=self.embedding_dim)
+            self.value = nn.Linear(in_features=self.embedding_dim, out_features=self.embedding_dim)
+
+            self.attn = nn.MultiheadAttention(embed_dim=self.embedding_dim, num_heads=4)
+            self.mask = None # last query에서는 필요가 없지만 수정을 고려하여서 넣어둠
+            self.ffn = Feed_Forward_block(self.embedding_dim)      
+
+            self.ln1 = nn.LayerNorm(self.embedding_dim)
+            self.ln2 = nn.LayerNorm(self.embedding_dim)
+
+            # LSTM
+            self.lstm = nn.LSTM(
+                self.embedding_dim, self.embedding_dim, self.num_layers, batch_first=True)
+
+            # GRU
+            self.gru = nn.GRU(
+                self.embedding_dim, self.embedding_dim, self.num_layers, batch_first=True)
+
+            # Fully connected layer
+            self.fc = nn.Linear(self.embedding_dim, 1)
+        
+            self.activation = nn.Sigmoid()
+        
+    def init_hidden(self, batch_size):
+        h = torch.zeros(
+            self.num_layers,
+            self.embedding_dim)
+        h = h.to(self.device)
+
+        c = torch.zeros(
+            self.num_layers,
+            self.embedding_dim)
+        c = c.to(self.device)
+
+        return (h, c)
+
+    def get_embedding(self, edge_index: Adj, additional_info:dict=None, edge_weight: OptTensor = None, 
+                      training:bool=True, dropout:float=0.2) -> Tensor:
+
+        item_embedding_weight = self.item_embedding.weight 
+        tag_embedding_weight  = self.tag_embedding(additional_info["item"]["KnowledgeTag"] )
+        testId_embedding_weight  = self.testId_embedding(additional_info["item"]["testId"] )
+        bigcat_embedding_weight  = self.bigcat_embedding(additional_info["item"]["big_category"] )
+        daydiff_embedding_weight = self.daydiff_embedding(additional_info["user"]["day_diff"])
+        total_embedding_weight = item_embedding_weight
+
+        embedding_list = [
+                          tag_embedding_weight,
+                          testId_embedding_weight,
+                          bigcat_embedding_weight,
+                         ]
+        
+        """ projection 0.821
+        embed = torch.cat( [item_embedding_weight,
+                    tag_embedding_weight,
+                    testId_embedding_weight,
+                    bigcat_embedding_weight])
+        
+        x = self.comb_proj(embed)
+        """
+
+        for emb in embedding_list : 
+            total_embedding_weight = total_embedding_weight + emb
+
+        total_embedding_weight = total_embedding_weight / (len(embedding_list) + 1 )
+
+        # total_embedding_weight = (  item_embedding_weight + tag_embedding_weight + testId_embedding_weigsht + bigcat_embedding_weight ) / 4
+
+        # if additional_info["item"] is not None :
+        #     for k in additional_info["item"] :
+        #         self.item_embedding( additional_info["item"][k] )
+
+        x = torch.cat([
+            ( self.user_embedding.weight + daydiff_embedding_weight ) / 2, 
+              total_embedding_weight
+            # total_embedding_weight
+            ],dim= 0)
+        
+                      
+        q = self.query(x)
+        k = self.key(x)
+        v = self.value(x)
+        out, _ = self.attn(q, k, v)
+        out = self.ln1(out)
+        out = self.ffn(out)
+        out = self.ln2(out)
+        
+        # x = self.embedding.weight
+        out = out * self.alpha[0]
+
+        # edge drop out
+        edge_index, edge_mask = self.dropout_edge(edge_index,p=dropout,training=training)
+        edge_weight = torch.masked_select(edge_weight, edge_mask) 
+        self.edge_mask = edge_mask
+        
+        for i in range(self.num_layers):
+            # edge_weight =  torch.ones(edge_index.size(1))
+            # print(edge_weight)
+            # print(edge_weight.shape)
+            x = self.convs[i](x, edge_index, edge_weight = edge_weight ) # edge_weight
+            out = out + x * self.alpha[i + 1]
+        return out
+
+
+##############################################################################################################
+# model test : LightGCN + Last Query Attention
+##############################################################################################################
 
 
 def build( num_info:dict, weight=None, logger=None, **kwargs):
