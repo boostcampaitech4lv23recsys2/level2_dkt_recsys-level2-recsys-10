@@ -22,6 +22,9 @@ def main(args):
     elif args.ENSEMBLE_STRATEGY == 'MIXED':
         strategy_title = args.ENSEMBLE_STRATEGY.lower() #mixed
         result = en.mixed()
+    elif args.ENSEMBLE_STRATEGY == 'HARD':
+        strategy_title = args.ENSEMBLE_STRATEGY.lower() #hard
+        result = en.voting_hard()
     else:
         pass
     en.output_frame['prediction'] = result
@@ -81,8 +84,8 @@ if __name__ == "__main__":
         type=lambda s: [item for item in s.split(',')],
         help='required: 앙상블할 submit 파일명을 쉼표(,)로 구분하여 모두 입력해 주세요. 이 때, .csv와 같은 확장자는 입력하지 않습니다.')
     arg('--ENSEMBLE_STRATEGY', type=str, default='WEIGHTED',
-        choices=['WEIGHTED','MIXED'],
-        help='optional: [MIXED, WEIGHTED] 중 앙상블 전략을 선택해 주세요. (default="WEIGHTED")')
+        choices=['WEIGHTED','MIXED', 'HARD'],
+        help='optional: [MIXED, WEIGHTED, HARD] 중 앙상블 전략을 선택해 주세요. (default="WEIGHTED")')
     arg('--ENSEMBLE_WEIGHT', nargs='+',default=None,
         type=lambda s: [float(item) for item in s.split(',')],
         help='optional: Weighted 앙상블 전략에서 각 결과값의 가중치를 조정할 수 있습니다.')
