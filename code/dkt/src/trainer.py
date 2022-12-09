@@ -19,8 +19,8 @@ def run(args, train_data, valid_data, model, kf_auc, kf_n=0):
     torch.cuda.empty_cache()
     gc.collect()
 
-    # augmented_train_data = data_augmentation(train_data, args)
-    # train_data = augmented_train_data
+    augmented_train_data = data_augmentation(train_data, args)
+    train_data = augmented_train_data
 
     train_loader, valid_loader = get_loaders(args, train_data, valid_data)
 
@@ -176,7 +176,7 @@ def inference(args, test_data, model):
         preds = preds.cpu().detach().numpy()
         total_preds += list(preds)
 
-    write_path = os.path.join(args.output_dir, "submission_attention.csv")
+    write_path = os.path.join(args.output_dir, "attention_last_2.csv")
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
     with open(write_path, "w", encoding="utf8") as w:
@@ -202,14 +202,29 @@ def get_model(args):
 
 # 배치 전처리
 def process_batch(batch):
+    
     (test, question, tag, correct, ass_aver, user_aver, big, 
     past_correct, same_item_cnt, problem_id_mean ,
     month_mean, elo,mask) = batch
+    # print('#################################')
+    # print(test)
+    # print(question)
+    # print(tag)
+    # print(correct)
+    # print(ass_aver)
+    # print(user_aver)
+    # print(big)
+    # print(past_correct)
+    # print(same_item_cnt)
+    # print(problem_id_mean)
+    # print(month_mean)
+    # print(elo)
+    # print(mask)
     # print('########################################################')
     # print('print batch : ')
     # print(batch)
     #test, question, tag, correct, cls, mask = batch
-
+    
     # change to float
     mask = mask.float()
     correct = correct.float()
@@ -270,30 +285,30 @@ def save_checkpoint(state, model_dir, model_filename):
     torch.save(state, os.path.join(model_dir, model_filename))
 
 
-# def load_model(args):
+def load_model(args):
 
-#     model_path = os.path.join(args.model_dir, args.model_name)
-#     print("Loading Model from:", model_path)
-#     load_state = torch.load(model_path)
-#     model = get_model(args)
-
-#     # load model state
-#     model.load_state_dict(load_state["state_dict"], strict=True)
-
-#     print("Loading Model from:", model_path, "...Finished.")
-#     return model
-
-def load_model(args, idx):
-    if args.split == 'user':
-        model_path = os.path.join(args.model_dir, args.model_name)
-    elif args.split == 'k-fold':
-        model_path = os.path.join(args.model_dir, args.model_name_k_fold + f'_{idx}.pt')
+    model_path = os.path.join(args.model_dir, args.model_name)
     print("Loading Model from:", model_path)
     load_state = torch.load(model_path)
     model = get_model(args)
 
-    #load model state
+    # load model state
     model.load_state_dict(load_state["state_dict"], strict=True)
 
     print("Loading Model from:", model_path, "...Finished.")
     return model
+
+# def load_model(args, idx):
+#     if args.split == 'user':
+#         model_path = os.path.join(args.model_dir, args.model_name)
+#     elif args.split == 'k-fold':
+#         model_path = os.path.join(args.model_dir, args.model_name_k_fold + f'_{idx}.pt')
+#     print("Loading Model from:", model_path)
+#     load_state = torch.load(model_path)
+#     model = get_model(args)
+
+#     #load model state
+#     model.load_state_dict(load_state["state_dict"], strict=True)
+
+#     print("Loading Model from:", model_path, "...Finished.")
+#     return model

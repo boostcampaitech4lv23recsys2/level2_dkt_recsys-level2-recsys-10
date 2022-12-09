@@ -46,3 +46,19 @@ class Ensemble:
             post_idx = self.filenames[idx+1]
             result[self.output_df[pre_idx]<1] = self.output_df.loc[self.output_df[pre_idx]<1,post_idx]
         return result.tolist()
+
+    # Hard
+    def voting_hard(self):
+        result = []
+        output_np = np.array(self.output_list).T
+        row_len = len(output_np[0])
+        for row in output_np[:]:
+            ans = np.where(row > 0.5, 1, 0) # voting
+            if ans.sum() > row_len//2:
+                value = np.average(row[np.where(ans == 1)]) # 1의 개수가 더 많으면 0.5 보다 큰 prob를 평균
+            elif ans.sum() < row_len//2:
+                value = np.average(row[np.where(ans == 0)]) # 0의 개수가 더 많으면 0.5 보다 작은 prob 평균
+            else:
+                value = np.average(row) # 동일한 경우 전체 평균
+            result.append(value)
+        return result

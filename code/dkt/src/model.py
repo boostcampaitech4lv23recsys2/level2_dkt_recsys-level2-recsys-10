@@ -76,6 +76,7 @@ class LSTMATTN(nn.Module):
     def __init__(self, args):
         super(LSTMATTN, self).__init__()
         self.args = args
+        #self.device = args.device
 
         self.hidden_dim = self.args.hidden_dim
         self.n_layers = self.args.n_layers
@@ -88,18 +89,23 @@ class LSTMATTN(nn.Module):
         self.embedding_test = nn.Embedding(self.args.n_test + 1, self.hidden_dim // 3)
         self.embedding_question = nn.Embedding(self.args.n_questions + 1, self.hidden_dim // 3)
         self.embedding_tag = nn.Embedding(self.args.n_tag + 1, self.hidden_dim // 3)
-        self.embedding_ass_aver = nn.Embedding(self.args.n_ass_aver + 1, self.hidden_dim // 3)
-        self.embedding_user_aver = nn.Embedding(self.args.n_user_aver + 1, self.hidden_dim // 3)
+        self.embedding_ass_aver = nn.Embedding(self.args.n_ass_aver, self.hidden_dim // 3)
+        self.embedding_user_aver = nn.Embedding(self.args.n_user_aver, self.hidden_dim // 3)
         self.embedding_big = nn.Embedding(self.args.n_big + 1, self.hidden_dim // 3)
         self.embedding_past_correct = nn.Embedding(self.args.n_past_correct + 1, self.hidden_dim // 3)
         self.embedding_same_item_cnt = nn.Embedding(self.args.n_same_item_cnt + 1, self.hidden_dim // 3)
-        self.embedding_problem_id_mean = nn.Embedding(self.args.n_problem_id_mean + 1, self.hidden_dim // 3)
-        self.embedding_month_mean = nn.Embedding(self.args.n_month_mean + 1, self.hidden_dim // 3)
-        self.embedding_elo = nn.Embedding(self.args.n_elo + 1, self.hidden_dim // 3)
+        self.embedding_problem_id_mean = nn.Embedding(self.args.n_problem_id_mean, self.hidden_dim // 3)
+        self.embedding_month_mean = nn.Embedding(self.args.n_month_mean, self.hidden_dim // 3)
+        self.embedding_elo = nn.Embedding(self.args.n_elo, self.hidden_dim // 3)
 
 
         # embedding combination projection
         self.comb_proj = nn.Linear((self.hidden_dim // 3) * 12, self.hidden_dim)
+        # self.cont_col = [5,6,10,11,12]
+        # self.n_cont = len(self.cont_col)
+        # self.embedding_cont = nn.Sequential(nn.Linear(self.n_cont, self.hidden_dim), nn.LayerNorm(self.hidden_dim))
+        #self.embedding_cont = nn.Linear(5, self.hidden_dim)
+        
 
         self.lstm = nn.LSTM(self.hidden_dim, self.hidden_dim, self.n_layers, batch_first=True)
 
@@ -111,6 +117,7 @@ class LSTMATTN(nn.Module):
             intermediate_size=self.hidden_dim,
             hidden_dropout_prob=self.drop_out,
             attention_probs_dropout_prob=self.drop_out,
+            max_position_embeddings=self.args.max_seq_len,
         )
         self.attn = BertEncoder(self.config)
 
@@ -143,7 +150,6 @@ class LSTMATTN(nn.Module):
         embed_month_mean = self.embedding_month_mean(month_mean)
         embed_elo = self.embedding_elo(elo)
 
-
         # print(embed_interaction.shape)
         # print(embed_test.shape)
         # print(embed_question.shape)
@@ -153,6 +159,7 @@ class LSTMATTN(nn.Module):
 
         embed = torch.cat(
             [
+                #["ass_aver", "user_aver", "problem_id_mean", "month_mean", "elo" ]
                 embed_interaction,
                 embed_test,
                 embed_question,
@@ -169,10 +176,40 @@ class LSTMATTN(nn.Module):
             ],
             2,
         )
+        # print('##################################')
+        # print('embed_size : ')
         # print(embed.shape)
+
+#         #size : 32,80,64
+        
+        #input[ass_aver] = list(map(int, input[ass_aver]))
+        #self.comb_proj = nn.Linear((self.hidden_dim // 3) * 7, self.hidden_dim)
+        
+        #cont = torch.cat([input[col].unsqueeze(2) for col in self.cont_col], 2)
+        #embedding_cont = nn.Sequential(nn.Linear(n_cont, self.hidden_dim), nn.LayerNorm(self.hidden_dim))
+        # cont = torch.cat(
+        #     [
+        #         input[5].unsqueeze(2),
+        #         input[6].unsqueeze(2),
+        #         input[10].unsqueeze(2),
+        #         input[11].unsqueeze(2),
+        #         input[12].unsqueeze(2)
+
+        #     ],
+        #     2,
+        # )
+
+
+        # print(type(embed_tag))
+        # print(type(input[5]))
+
+        #embed_cont = self.embedding_cont(cont)  
+
         X = self.comb_proj(embed)
+        #X = self.comb_proj(torch.cat([embed, embed_cont],2))
 
         out, _ = self.lstm(X)
+
         out = out.contiguous().view(batch_size, -1, self.hidden_dim)
 
         extended_attention_mask = mask.unsqueeze(1).unsqueeze(2)
@@ -181,6 +218,8 @@ class LSTMATTN(nn.Module):
         head_mask = [None] * self.n_layers
 
         encoded_layers = self.attn(out, extended_attention_mask, head_mask=head_mask)
+
+
         sequence_output = encoded_layers[-1]
 
         out = self.fc(sequence_output).view(batch_size, -1)

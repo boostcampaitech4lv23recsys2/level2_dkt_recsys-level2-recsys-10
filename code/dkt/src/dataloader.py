@@ -59,10 +59,12 @@ class Preprocess:
         np.save(le_path, encoder.classes_)
 
     def __preprocessing(self, df, is_train=True):
-        #cate_cols = ["assessmentItemID", "testId", "KnowledgeTag", "ass_aver", "user_aver"]
-        cate_cols = (["assessmentItemID", "testId", "KnowledgeTag", 
-                    "ass_aver", "user_aver","big", "past_correct", "same_item_cnt", "problem_id_mean",
-                    "month_mean", "elo" ])
+        #cate_cols = self.args.CAT_COLUMN
+        cate_cols = ["assessmentItemID", "testId", "KnowledgeTag","big", "past_correct", "same_item_cnt","ass_aver"]
+        # cate_cols = (["assessmentItemID", "testId", "KnowledgeTag", 
+        #             "ass_aver", "user_aver","big", "past_correct", "same_item_cnt", "problem_id_mean",
+        #             "month_mean", "elo" ])
+         
 
         if not os.path.exists(self.args.asset_dir):
             os.makedirs(self.args.asset_dir)
@@ -102,10 +104,6 @@ class Preprocess:
 
     def x_100(self, value):   #0~100범위로 바꿔주기
         return int(value * 100)
-
-    
-
-
 
     def __feature_engineering(self, df):
         #문항별 평균 평점
@@ -247,16 +245,26 @@ class Preprocess:
 
         df = elo(df)
 
+        # self.args.USERID_COLUMN = ['userID']
+        # self.args.CAT_COLUMN = ["assessmentItemID", "testId", "KnowledgeTag","big", "past_correct", "same_item_cnt"]
+        # self.args.CON_COLUMN = ["ass_aver", "user_aver", "problem_id_mean", "month_mean", "elo" ]
+        # self.args.ANSWER_COLUMN = ['answerCode']
 
         return df
+
+    # def df_group_value_apply(self, r):
+    #     return tuple([r[x].values for x in self.args.CAT_COLUMN] + [r[x].values for x in self.args.CON_COLUMN] + [r[x].values for x in self.args.ANSWER_COLUMN])
 
     def load_data_from_file(self, file_name, is_train=True):
         csv_file_path = os.path.join(self.args.data_dir, file_name)
         df = pd.read_csv(csv_file_path)  # , nrows=100000)
         df = self.__feature_engineering(df)
-        df = self.__preprocessing(df, is_train)
+        df = self.__preprocessing(df, is_train) #범주형
 
         # 추후 feature를 embedding할 시에 embedding_layer의 input 크기를 결정할때 사용
+        #self.args.n_embedding_layers = []
+        # for val in self.args.CAT_COLUMN:
+        #     self.args.n_embedding_layers.append(len(np.load(os.path.join(self.args.asset_dir, val+'_classes.npy'))))
 
         self.args.n_questions = len(
             np.load(os.path.join(self.args.asset_dir, "assessmentItemID_classes.npy"))
@@ -292,15 +300,21 @@ class Preprocess:
             np.load(os.path.join(self.args.asset_dir, "elo_classes.npy"))
         )
 
+        
+
         df = df.sort_values(by=["userID", "Timestamp"], axis=0)
         columns = ["userID", "assessmentItemID", "testId", "answerCode", "KnowledgeTag",
                     "ass_aver","user_aver","big", "past_correct", "same_item_cnt", "problem_id_mean",
                     "month_mean", "elo"]
+        
+        #columns = self.args.USERID_COLUMN+self.args.CAT_COLUMN+self.args.CON_COLUMN+self.args.ANSWER_COLUMN
+        
         #columns = ["userID", "assessmentItemID", "testId", "answerCode", "KnowledgeTag", "class"]
         group = (
             df[columns]
             .groupby("userID")
             .apply(
+                #self.df_group_value_apply
                 lambda r: (
                     r["testId"].values,
                     r["assessmentItemID"].values,
@@ -339,6 +353,7 @@ class DKTDataset(torch.utils.data.Dataset):
         self.args = args
 
     def __getitem__(self, index):
+
         row = self.data[index]
 
         # 각 data의 sequence length
@@ -349,12 +364,15 @@ class DKTDataset(torch.utils.data.Dataset):
         month_mean, elo)= (
             row[0], row[1], row[2], row[3], row[4], row[5], row[6],
              row[7], row[8], row[9], row[10], row[11])
-        #test, question, tag, correct, cls = row[0], row[1], row[2], row[3], row[4]
 
-        #cate_cols = [test, question, tag, correct, cls]
+        #test, question, tag, correct, cls = row[0], row[1], row[2], row[3], row[4]
+        #cate_cols = [val for val in row]
+        #print(len(cate_cols))
+        #cate_cols = [assessmentItemID, testId, KnowledgeTag, big, past_correct, same_item_cnt]
         cate_cols = ([test, question, tag, correct, ass_aver, user_aver, big,
                         past_correct, same_item_cnt, problem_id_mean,
                         month_mean, elo])
+        #cate_cols = [val for val in row]
 
         # max seq len을 고려하여서 이보다 길면 자르고 아닐 경우 그대로 냅둔다
         if seq_len > self.args.max_seq_len:
