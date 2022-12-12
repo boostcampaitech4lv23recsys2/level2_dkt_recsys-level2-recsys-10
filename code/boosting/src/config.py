@@ -11,10 +11,13 @@ boosting_params = {
     },
   
     "LGBM" : {
-        'objective': "binary",# regression, binary, multiclass
-        'learning_rate':1e-2,
-        'drop_rate':0.1,
-        'num_iterations':500
+        'learning_rate': 0.001, 
+        'objective': 'binary', 
+        'metric': 'auc',
+        'sub_feature': 0.5, 
+        'num_leaves': 10, 
+        'min_data': 50, 
+        'max_depth': 10
     },
 
     "LGBMClassifier" : {

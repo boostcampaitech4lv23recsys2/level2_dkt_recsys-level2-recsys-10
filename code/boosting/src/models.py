@@ -13,6 +13,9 @@ from sklearn.metrics import accuracy_score
 import os 
 import numpy as np
 
+import optuna
+from optuna.samplers import TPESampler
+
 class MLModelBase:
 
     def __init__(self, 
@@ -167,9 +170,9 @@ class MyLGBM(MLModelBase):
             self.lgb_train,
             valid_sets=[self.lgb_train, self.lgb_valid],
             verbose_eval=100,
-            num_boost_round=500,
+            num_boost_round=2000,
             early_stopping_rounds=100,
-            valid_names=('validation'),
+            # valid_names=('validation'),
             callbacks=[wandb.lightgbm.wandb_callback()] )
 
         wandb.lightgbm.log_summary(self.model, save_model_checkpoint=True)
@@ -245,16 +248,65 @@ class MyCatClassifier(MLModelBase):
         self.cat_features = [f for f in self.train_X.columns if self.train_X[f].dtype == 'object' or self.train_X[f].dtype == 'category']
         
     def train(self):
+        
+        def objective(trial):
+            param = {
+                "random_state":42,
+                'learning_rate' : trial.suggest_loguniform('learning_rate', 0.01, 0.3),
+                'bagging_temperature' :trial.suggest_loguniform('bagging_temperature', 0.01, 100.00),
+                "n_estimators":trial.suggest_int("n_estimators", 1000, 10000),
+                "max_depth":trial.suggest_int("max_depth", 4, 16),
+                'random_strength' :trial.suggest_int('random_strength', 0, 100),
+                "colsample_bylevel":trial.suggest_float("colsample_bylevel", 0.4, 1.0),
+                "l2_leaf_reg":trial.suggest_float("l2_leaf_reg",1e-8,3e-5),
+                "min_child_samples": trial.suggest_int("min_child_samples", 5, 100),
+                "max_bin": trial.suggest_int("max_bin", 200, 500),
+                'od_type': trial.suggest_categorical('od_type', ['IncToDec', 'Iter']),
+                'eval_metric': "AUC"
+                # 'metric': 'auc'
+            }
+
+            # X_train, X_valid, y_train, y_valid = train_test_split(X,y,test_size=0.2)
+            
+            # cat_features =[0,1,2,5,6,7,8,15,18]
+            cat = CatBoostClassifier(**param)
+            cat.fit(self.train_X, self.y_train,
+                    eval_set=(self.valid_X, self.y_valid),
+                    early_stopping_rounds=35,cat_features=self.cat_features,
+                    verbose=100)
+            cat_pred = cat.predict(self.valid_X)
+            auc_score = roc_auc_score(self.y_valid, cat_pred)
+            print('AUC score of CatBoost =', auc_score)
+
+            return auc_score
+        
+        sampler = TPESampler(seed=42)
+        study = optuna.create_study(
+            study_name = 'cat_parameter_opt',
+            direction = 'maximize',
+            sampler = sampler,
+        )
+        study.optimize(objective, n_trials=1)
+        print("Best Score:",study.best_value)
+        print("Best trial",study.best_trial.params)
 
         wandb.login()    
         wandb.init(project = "CatBC", config = self.best_params)
 
-        self.model.fit(
-            self.train_X, self.y_train,
-            cat_features=self.cat_features,
-            eval_set=(self.valid_X, self.y_valid),
-            verbose=False
-        )
+        best_params_cat = study.best_trial.params
+        best_params_cat.update({'eval_metric':'AUC'})
+
+        self.model = CatBoostClassifier(**best_params_cat)
+        self.model.fit(self.train_X, self.y_train,
+                eval_set=(self.valid_X, self.y_valid),
+                early_stopping_rounds=35,cat_features=self.cat_features,
+                verbose=100)
+        # self.model.fit(
+        #     self.train_X, self.y_train,
+        #     cat_features=self.cat_features,
+        #     eval_set=(self.valid_X, self.y_valid),
+        #     verbose=False
+        # )
 
         preds = self.model.predict(self.valid_X[self.FEATS])
 
