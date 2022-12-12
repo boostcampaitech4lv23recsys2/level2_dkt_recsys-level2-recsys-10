@@ -83,7 +83,7 @@ class Preprocess:
         csv_file_path = os.path.join(self.args.data_dir, file_name)
         df = pd.read_csv(csv_file_path)  # , nrows=100000)
 
-        if is_train:
+        if is_train: # 1: train, 0: test, 2: test(null)
             df = df[df["train"] == 1]
         else:
             df = df[df["train"] == 0]
