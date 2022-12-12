@@ -97,7 +97,7 @@ def parse_args():
                                 'item_num',
                                 # 'item_seq',
                                 # ‘Bigcat_class’,
-                                'day_diff',
+                                # 'day_diff',
                         ],
                         help="category features")
 
