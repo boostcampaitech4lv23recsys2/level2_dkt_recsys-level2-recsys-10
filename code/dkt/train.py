@@ -1,7 +1,6 @@
 import os
-
 import torch
-import wandb
+#import wandb
 from args import parse_args
 from src import trainer
 from src.dataloader import Preprocess
@@ -10,7 +9,7 @@ from src.utils import setSeeds
 from sklearn.model_selection import KFold
 
 def main(args):
-    wandb.login()
+    #wandb.login()
 
     setSeeds(args.seed)
     args.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -20,10 +19,10 @@ def main(args):
     train_data = preprocess.get_train_data()
     train_data, valid_data = preprocess.split_data(train_data)
 
-    wandb.init(project="attention", config=vars(args))
+    #wandb.init(project="attention", config=vars(args))
 
     if args.split == 'user':
-        wandb.init(project="attention", config=vars(args))
+        #wandb.init(project="attention", config=vars(args))
         model = trainer.get_model(args).to(args.device)
         kf_auc = []
         trainer.run(args, train_data, valid_data, model, kf_auc)
@@ -41,9 +40,9 @@ def main(args):
             
             trainer.run(args, train_, test_, model, kf_auc, idx+1)
     
-        wandb.log({
-            'kfold_avg_valid_auc' : sum(kf_auc)/n_splits
-        })
+        # wandb.log({
+        #     'kfold_avg_valid_auc' : sum(kf_auc)/n_splits
+        # })
         
 if __name__ == "__main__":
     args = parse_args()

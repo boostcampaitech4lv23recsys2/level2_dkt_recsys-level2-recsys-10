@@ -2,7 +2,7 @@ import math
 import os
 
 import torch
-import wandb
+#import wandb
 import gc
 
 from .criterion import get_criterion
@@ -48,16 +48,16 @@ def run(args, train_data, valid_data, model, kf_auc, kf_n=0):
         auc, acc = validate(valid_loader, model, args)
 
         ### TODO: model save or early stopping
-        wandb.log(
-            {
-                "epoch": epoch,
-                "train_loss_epoch": train_loss,
-                "train_auc_epoch": train_auc,
-                "train_acc_epoch": train_acc,
-                "valid_auc_epoch": auc,
-                 "valid_acc_epoch": acc,
-            }
-        )
+        # wandb.log(
+        #     {
+        #         "epoch": epoch,
+        #         "train_loss_epoch": train_loss,
+        #         "train_auc_epoch": train_auc,
+        #         "train_acc_epoch": train_acc,
+        #         "valid_auc_epoch": auc,
+        #          "valid_acc_epoch": acc,
+        #     }
+        # )
         if auc > best_auc:
             best_auc = auc
             # torch.nn.DataParallel로 감싸진 경우 원래의 model을 가져옵니다.
@@ -240,14 +240,14 @@ def process_batch(batch):
     test = ((test + 1) * mask).int()
     question = ((question + 1) * mask).int()
     tag = ((tag + 1) * mask).int()
-    ass_aver = ((ass_aver + 1) * mask).int()
-    user_aver = ((user_aver + 1) * mask).int()
+    ass_aver = ((ass_aver + 1) * mask).float()#.int()
+    user_aver = ((user_aver + 1) * mask).float()#.int()
     big = ((big + 1) * mask).int()
     past_correct = ((past_correct + 1) * mask).int()
     same_item_cnt = ((same_item_cnt + 1) * mask).int()
-    problem_id_mean = ((problem_id_mean + 1) * mask).int()
-    month_mean = ((month_mean + 1) * mask).int()
-    elo = ((elo + 1) * mask).int()
+    problem_id_mean = ((problem_id_mean + 1) * mask).float()#.int()
+    month_mean = ((month_mean + 1) * mask).float()#.int()
+    elo = ((elo + 1) * mask).float()#.int()
     #return (test, question, tag, correct, mask, cls, interaction)
     return (test, question, tag, correct, mask, ass_aver, user_aver,big, 
             past_correct, same_item_cnt, problem_id_mean, month_mean, elo, interaction)

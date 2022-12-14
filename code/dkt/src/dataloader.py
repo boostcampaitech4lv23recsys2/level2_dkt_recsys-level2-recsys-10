@@ -59,12 +59,8 @@ class Preprocess:
         np.save(le_path, encoder.classes_)
 
     def __preprocessing(self, df, is_train=True):
-        #cate_cols = self.args.CAT_COLUMN
-        cate_cols = ["assessmentItemID", "testId", "KnowledgeTag","big", "past_correct", "same_item_cnt","ass_aver"]
-        # cate_cols = (["assessmentItemID", "testId", "KnowledgeTag", 
-        #             "ass_aver", "user_aver","big", "past_correct", "same_item_cnt", "problem_id_mean",
-        #             "month_mean", "elo" ])
-         
+        cate_cols = (["assessmentItemID", "testId", "KnowledgeTag", 
+                    "big", "past_correct", "same_item_cnt"])
 
         if not os.path.exists(self.args.asset_dir):
             os.makedirs(self.args.asset_dir)
@@ -263,8 +259,6 @@ class Preprocess:
 
         # 추후 feature를 embedding할 시에 embedding_layer의 input 크기를 결정할때 사용
         #self.args.n_embedding_layers = []
-        # for val in self.args.CAT_COLUMN:
-        #     self.args.n_embedding_layers.append(len(np.load(os.path.join(self.args.asset_dir, val+'_classes.npy'))))
 
         self.args.n_questions = len(
             np.load(os.path.join(self.args.asset_dir, "assessmentItemID_classes.npy"))
@@ -275,12 +269,12 @@ class Preprocess:
         self.args.n_tag = len(
             np.load(os.path.join(self.args.asset_dir, "KnowledgeTag_classes.npy"))
         )
-        self.args.n_ass_aver = len(
-            np.load(os.path.join(self.args.asset_dir, "ass_aver_classes.npy"))
-        )
-        self.args.n_user_aver = len(
-            np.load(os.path.join(self.args.asset_dir, "user_aver_classes.npy"))
-        )
+        # self.args.n_ass_aver = len(
+        #     np.load(os.path.join(self.args.asset_dir, "ass_aver_classes.npy"))
+        # )
+        # self.args.n_user_aver = len(
+        #     np.load(os.path.join(self.args.asset_dir, "user_aver_classes.npy"))
+        # )
         self.args.n_big = len(
             np.load(os.path.join(self.args.asset_dir, "big_classes.npy"))
         )
@@ -290,15 +284,15 @@ class Preprocess:
         self.args.n_same_item_cnt = len(
             np.load(os.path.join(self.args.asset_dir, "same_item_cnt_classes.npy"))
         )
-        self.args.n_problem_id_mean = len(
-            np.load(os.path.join(self.args.asset_dir, "problem_id_mean_classes.npy"))
-        )
-        self.args.n_month_mean = len(
-            np.load(os.path.join(self.args.asset_dir, "month_mean_classes.npy"))
-        )
-        self.args.n_elo = len(
-            np.load(os.path.join(self.args.asset_dir, "elo_classes.npy"))
-        )
+        # self.args.n_problem_id_mean = len(
+        #     np.load(os.path.join(self.args.asset_dir, "problem_id_mean_classes.npy"))
+        # )
+        # self.args.n_month_mean = len(
+        #     np.load(os.path.join(self.args.asset_dir, "month_mean_classes.npy"))
+        # )
+        # self.args.n_elo = len(
+        #     np.load(os.path.join(self.args.asset_dir, "elo_classes.npy"))
+        # )
 
         
 
@@ -363,7 +357,9 @@ class DKTDataset(torch.utils.data.Dataset):
         past_correct, same_item_cnt, problem_id_mean,
         month_mean, elo)= (
             row[0], row[1], row[2], row[3], row[4], row[5], row[6],
-             row[7], row[8], row[9], row[10], row[11])
+            row[7], row[8], row[9], row[10], row[11])
+
+        
 
         #test, question, tag, correct, cls = row[0], row[1], row[2], row[3], row[4]
         #cate_cols = [val for val in row]

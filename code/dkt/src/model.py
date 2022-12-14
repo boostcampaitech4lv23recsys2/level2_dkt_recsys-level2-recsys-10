@@ -89,18 +89,20 @@ class LSTMATTN(nn.Module):
         self.embedding_test = nn.Embedding(self.args.n_test + 1, self.hidden_dim // 3)
         self.embedding_question = nn.Embedding(self.args.n_questions + 1, self.hidden_dim // 3)
         self.embedding_tag = nn.Embedding(self.args.n_tag + 1, self.hidden_dim // 3)
-        self.embedding_ass_aver = nn.Embedding(self.args.n_ass_aver, self.hidden_dim // 3)
-        self.embedding_user_aver = nn.Embedding(self.args.n_user_aver, self.hidden_dim // 3)
+        #self.embedding_ass_aver = nn.Embedding(self.args.n_ass_aver, self.hidden_dim // 3)
+        #self.embedding_user_aver = nn.Embedding(self.args.n_user_aver, self.hidden_dim // 3)
         self.embedding_big = nn.Embedding(self.args.n_big + 1, self.hidden_dim // 3)
         self.embedding_past_correct = nn.Embedding(self.args.n_past_correct + 1, self.hidden_dim // 3)
         self.embedding_same_item_cnt = nn.Embedding(self.args.n_same_item_cnt + 1, self.hidden_dim // 3)
-        self.embedding_problem_id_mean = nn.Embedding(self.args.n_problem_id_mean, self.hidden_dim // 3)
-        self.embedding_month_mean = nn.Embedding(self.args.n_month_mean, self.hidden_dim // 3)
-        self.embedding_elo = nn.Embedding(self.args.n_elo, self.hidden_dim // 3)
+        #self.embedding_problem_id_mean = nn.Embedding(self.args.n_problem_id_mean, self.hidden_dim // 3)
+        #self.embedding_month_mean = nn.Embedding(self.args.n_month_mean, self.hidden_dim // 3)
+        #self.embedding_elo = nn.Embedding(self.args.n_elo, self.hidden_dim // 3)
 
 
         # embedding combination projection
-        self.comb_proj = nn.Linear((self.hidden_dim // 3) * 12, self.hidden_dim)
+        self.comb_proj_cont = nn.Linear(5, self.hidden_dim)
+        self.comb_proj_cate = nn.Linear((self.hidden_dim // 3) * 7, self.hidden_dim)
+        self.comb_proj = nn.Linear(self.hidden_dim * 2, self.hidden_dim)
         # self.cont_col = [5,6,10,11,12]
         # self.n_cont = len(self.cont_col)
         # self.embedding_cont = nn.Sequential(nn.Linear(self.n_cont, self.hidden_dim), nn.LayerNorm(self.hidden_dim))
@@ -123,7 +125,7 @@ class LSTMATTN(nn.Module):
 
         # Fully connected layer
         self.fc = nn.Linear(self.hidden_dim, 1)
-
+        self.norm = nn.BatchNorm1d(self.args.max_seq_len)
         self.activation = nn.Sigmoid()
 
     def forward(self, input):
@@ -134,6 +136,7 @@ class LSTMATTN(nn.Module):
         (test, question, tag, _, mask, ass_aver, user_aver, big, 
         past_correct, same_item_cnt, problem_id_mean, 
         month_mean, elo,interaction)= input  
+
         batch_size = interaction.size(0)
 
         # Embedding
@@ -141,14 +144,14 @@ class LSTMATTN(nn.Module):
         embed_test = self.embedding_test(test)
         embed_question = self.embedding_question(question)
         embed_tag = self.embedding_tag(tag)
-        embed_ass_aver = self.embedding_ass_aver(ass_aver)
-        embed_user_aver = self.embedding_user_aver(user_aver)
+        #embed_ass_aver = self.embedding_ass_aver(ass_aver)
+        #embed_user_aver = self.embedding_user_aver(user_aver)
         embed_big = self.embedding_big(big)
         embed_past_correct = self.embedding_past_correct(past_correct)
         embed_same_item_cnt = self.embedding_same_item_cnt(same_item_cnt)
-        embed_problem_id_mean = self.embedding_problem_id_mean(problem_id_mean)
-        embed_month_mean = self.embedding_month_mean(month_mean)
-        embed_elo = self.embedding_elo(elo)
+        #embed_problem_id_mean = self.embedding_problem_id_mean(problem_id_mean)
+        #embed_month_mean = self.embedding_month_mean(month_mean)
+        #embed_elo = self.embedding_elo(elo)
 
         # print(embed_interaction.shape)
         # print(embed_test.shape)
@@ -157,25 +160,29 @@ class LSTMATTN(nn.Module):
         # print(embed_ass_aver.shape)
         # print(embed_user_aver.shape)
 
-        embed = torch.cat(
+        embed_cate = torch.cat(
             [
                 #["ass_aver", "user_aver", "problem_id_mean", "month_mean", "elo" ]
                 embed_interaction,
                 embed_test,
                 embed_question,
                 embed_tag,
-                embed_ass_aver,
-                embed_user_aver,
+                #embed_ass_aver,
+                #embed_user_aver,
                 embed_big,
                 embed_past_correct,
                 embed_same_item_cnt,
-                embed_problem_id_mean,
-                embed_month_mean,
-                embed_elo
+                #embed_problem_id_mean,
+                #embed_month_mean,
+                #embed_elo
 
             ],
             2,
         )
+
+
+        embed_cate = self.comb_proj_cate(embed_cate)
+
         # print('##################################')
         # print('embed_size : ')
         # print(embed.shape)
@@ -204,6 +211,20 @@ class LSTMATTN(nn.Module):
         # print(type(input[5]))
 
         #embed_cont = self.embedding_cont(cont)  
+
+        contin = torch.stack([
+        ass_aver,
+        user_aver,
+        problem_id_mean,
+        month_mean,
+        elo,
+        ],
+        2,
+    )
+        contin_layer = self.comb_proj_cont(contin)
+        norm_contin = self.norm(contin_layer)
+
+        embed = torch.cat([embed_cate, norm_contin], 2)
 
         X = self.comb_proj(embed)
         #X = self.comb_proj(torch.cat([embed, embed_cont],2))

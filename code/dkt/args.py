@@ -6,11 +6,11 @@ def parse_args():
 
     parser.add_argument("--seed", default=42, type=int, help="seed")
 
-    parser.add_argument("--device", default="gpu", type=str, help="cpu or gpu")
+    parser.add_argument("--device", default="cpu", type=str, help="cpu or gpu")
 
     parser.add_argument(
         "--data_dir",
-        default="/opt/ml/input/data/",
+        default="/Users/janghyeon-u/Desktop/project/boost/level_2_DKT/level2_dkt_recsys-level2-recsys-10/data/",
         type=str,
         help="data directory",
     )
