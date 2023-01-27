@@ -32,7 +32,11 @@
 
 ## 3. 프로젝트 진행
 ### 3-1. 사전 기획
+- 22.11.10(목): DKT 프로젝트 전 오프라인 미팅
+- 22.11.14(월): 모델 세미나
 ### 3-2. 프로젝트 수행
+![DKT drawio](https://user-images.githubusercontent.com/49949138/215059582-768852d3-16d1-4dec-9e28-e8ae537e9f39.png)
+
 
 ## 4. 프로젝트 수행 결과
 ### 4-1. 모델 성능 및 결과
@@ -47,11 +51,24 @@
 | O | LightGBM LightGCN LastQuery (0.7, 0.1, 0.2) | 0.8252 | 0.8476|
 | X | LightGBM LastQuery XGBoost LightGCNx3 (hard voting) <br> - LightGCN , LightGCN + feature representation , LightGCN + Bert | 0.8094 | 0.8531|
 | X | LightGBM LightGCN LastQuery  (0.65, 0.15, 0.2) | 0.8232 |	0.8506|
+![Uploading 제목 없는 다이어그램.drawio (1).png…]()
 
 
 ### 4-2. 모델 개요
 ### 4-3. 모델 선정
+- 베이스라인 코드
+    - LightGBM
+        - 기본적으로 주어진 컬럼이 굉장히 적고 만들어내야 하는 상황이다. 따라서assessmentItemID, testId, KnowledgeTag 등 대부분이 범주형으로 주어졌지만 Feature로 통계값을 많이 사용할거라 예상하여 CatBoost 사용을 미루기로 했다. 또한 주어진 데이터 양이 적지 않으므로 XGBoost보다 LGBM이 효율적이라 생각했다.
+- 추가적인 모델 선택
+    - LastQuery
+        - Riid 대회에서 1등을 기록한 모델로, sequence 길이에 따라 향상된 성능을 보였으며 다른 transformer 계열 모델에 비해 feature engineering이 적게 필요하여 모델링 소요시간과 성능 측면에서 장점을 보였기 때문에 선택했다.
+    - XGBoost
+        - LightGBM 모델이 성능이 잘 나와 비슷한 CART(Classification and regression tree) 앙상블 모델이면서 다양한 하이퍼 파라미터를 조절해 볼 수 있어 LightGBM과 비교를 위해 추가적으로 사용하게 되었다.
+
 ### 4-4. 모델 성능 개선 방법
+- Hyperparameter tuning(Wandb, Sweep, Optuna)
+- K-fold
+- Ensemble
 
 ## 5. WrapUp Report
 [Level_2_DKT_랩업리포트](https://www.notion.so/Level_2_DKT_-d6f19e429a6744369c121ac9d17e7f4b)
