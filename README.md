@@ -10,6 +10,44 @@
 - 협업 Tool : GitHub, Notion
 - 시각화 : WandB
 ### 1-5. 프로젝트 구조도
+```
+|-- boosting
+|   |-- XGBoptuna.ipynb
+|   |-- boosting_baseline.py
+|   |-- src
+|   |-- train.py
+|-- dkt
+|   |-- README.md
+|   |-- args.py
+|   |-- inference.py
+|   |-- requirements.txt
+|   |-- src
+|   |-- sweep.yaml
+|   |-- train.py
+|   |-- tuning.py
+|   |-- wandb_train.py
+|-- ensembles
+|   |-- ensembles.py
+|-- lgbm
+|   |-- lgbm.ipynb
+|   |-- lgbm_baseline.py
+|   |-- lgbm_group_kfold.ipynb
+|-- lightgcn
+|   |-- README.md
+|   |-- config.py
+|   |-- inference.py
+|   |-- install.sh
+|   |-- lightgcn
+|   |-- train.py
+|-- lightgcn_custom
+|   |-- README.md
+|   |-- config.py
+|   |-- inference.py
+|   |-- install.sh
+|   |-- lightgcn
+|   |-- requirements_lightgcn_custom.txt
+|   |-- train.py
+```
 - (1) boosting folder
 	- LGBM, XGBoost, CatBoost baseline code
 - (2) dkt folder
@@ -34,13 +72,19 @@
 ### 3-1. 사전 기획
 - 22.11.10(목): DKT 프로젝트 전 오프라인 미팅
 - 22.11.14(월): 모델 세미나
+- 일정 수립
+    - 22.11.14(월) ~ 22.11.20(일) : EDA
+    - 22.11.14(월) ~ 22.12.02(금) : Feature Engineering
+    - 22.11.23(수) ~ 22.12.02(금) : Modeling
+    - 22.12.03(토) ~ 22.12.09(금) : 최적화
+
 ### 3-2. 프로젝트 수행
 ![DKT drawio](https://user-images.githubusercontent.com/49949138/215059582-768852d3-16d1-4dec-9e28-e8ae537e9f39.png)
 
 
 ## 4. 프로젝트 수행 결과
 ### 4-1. 모델 성능 및 결과
-**■ 결과 (상위 4 개) : Private 7위 **
+**■ 결과 ( AUROC Score 상위 4 개) : Private 7위**
 | LSTMAttention | BERT | LastQuery | XGBoost | LightGBM | LightGCN |
 | --- | --- | --- | --- | --- | --- |
 | 0.7594 | 0.7791 | 0.8063 | 0.8114 | 0.8210 | 0.7823 |
@@ -51,7 +95,6 @@
 | O | LightGBM LightGCN LastQuery (0.7, 0.1, 0.2) | 0.8252 | 0.8476|
 | X | LightGBM LastQuery XGBoost LightGCNx3 (hard voting) <br> - LightGCN , LightGCN + feature representation , LightGCN + Bert | 0.8094 | 0.8531|
 | X | LightGBM LightGCN LastQuery  (0.65, 0.15, 0.2) | 0.8232 |	0.8506|
-![Uploading 제목 없는 다이어그램.drawio (1).png…]()
 
 
 ### 4-2. 모델 개요
