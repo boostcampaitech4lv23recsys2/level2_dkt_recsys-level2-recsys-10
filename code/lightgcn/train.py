@@ -1,10 +1,10 @@
+
 import pandas as pd
 import torch
 from config import CFG, logging_conf
 from lightgcn.datasets import prepare_dataset
 from lightgcn.models import build, train
-from lightgcn.utils import class2dict, get_logger
-
+from lightgcn.utils import class2dict, get_logger,setSeeds
 if CFG.user_wandb:
     import wandb
 
@@ -18,17 +18,19 @@ print(device)
 
 
 def main():
+    setSeeds()
     logger.info("Task Started")
 
     logger.info("[1/1] Data Preparing - Start")
-    train_data, test_data, n_node = prepare_dataset(
+    train_data, valid_data,test_data, n_node = prepare_dataset(
         device, CFG.basepath, verbose=CFG.loader_verbose, logger=logger.getChild("data")
     )
     logger.info("[1/1] Data Preparing - Done")
 
     logger.info("[2/2] Model Building - Start")
+
     model = build(
-        n_node,
+        n_node, 
         embedding_dim=CFG.embedding_dim,
         num_layers=CFG.num_layers,
         alpha=CFG.alpha,
@@ -46,6 +48,7 @@ def main():
     train(
         model,
         train_data,
+        valid_data,
         n_epoch=CFG.n_epoch,
         learning_rate=CFG.learning_rate,
         use_wandb=CFG.user_wandb,
