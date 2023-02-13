@@ -1,0 +1,31 @@
+program: train.py
+method: bayes
+metric:
+  name: valid_auc_epoch
+  goal: maximize
+parameters:
+  # n_heads: 
+  #   values: [1, 2, 4, 8, 16, 32, 64]
+  hidden_dim:
+    values: [256, 512]
+  max_seq_len: 
+    min: 80
+    max: 100
+  lr:
+    # values: [1e-1, 1e-2, 1e-3, 1e-4, 1e-5]
+    min: 0.001
+    max: 0.004
+  # batch_size:
+  #   values: [1, 2, 4, 8, 16, 32, 64, 128]
+  drop_out:
+    values: [0.3, 0.4, 0.5]
+  window:
+    values: [True, False]
+  # shuffle:
+  #   values: [True, False]
+  stride:
+    min: 80
+    max: 100
+  clip_grad:
+    min: 100
+    max: 150
