@@ -13,6 +13,9 @@ Thumbs.db
 # csv file 
 **/*.csv
 
+# png file
+**/*.png
+
 # pt file
 **/*.pt
 

@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from sklearn.metrics import accuracy_score, roc_auc_score
 from torch_geometric.nn.models import LightGCN
-
+from torch_geometric.nn import MessagePassing
 
 def build(n_node, weight=None, logger=None, **kwargs):
     model = LightGCN(n_node, **kwargs)
@@ -59,8 +59,8 @@ def train(
         with torch.no_grad():
             prob = model.predict_link(valid_data["edge"], prob=True)
             prob = prob.detach().cpu().numpy()
-            acc = accuracy_score(valid_data["label"], prob > 0.5)
-            auc = roc_auc_score(valid_data["label"], prob)
+            acc = accuracy_score(valid_data["label"].cpu().numpy(), prob > 0.5)
+            auc = roc_auc_score(valid_data["label"].cpu().numpy(), prob)
             logger.info(
                 f" * In epoch {(e+1):04}, loss={loss:.03f}, acc={acc:.03f}, AUC={auc:.03f}"
             )
